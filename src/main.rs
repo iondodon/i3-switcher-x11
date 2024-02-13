@@ -1,12 +1,11 @@
-use gtk4::glib::GString;
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
-use core::time;
+use x11::xlib;
 use std::error::Error;
-use std::{self, thread};
+use std::ptr;
 use gtk4::prelude::GtkWindowExt;
 
 fn focus_window(window_id: i64) {
@@ -49,6 +48,39 @@ fn logic() {
 
 
 fn main() -> Result<(), Box<dyn Error>> {
+    unsafe {
+        let display = xlib::XOpenDisplay(ptr::null());
+        if display.is_null() {
+            panic!("Cannot open display");
+        }
+
+        let screen = xlib::XDefaultScreen(display);
+        let root_window = xlib::XRootWindow(display, screen);
+
+        // KeyCode for 'Tab' and modifier for 'Alt'
+        let tab_key = xlib::XKeysymToKeycode(display, 0xFF09 as u64) as i32;
+        let alt_mask = xlib::Mod1Mask;
+
+        // Grab Alt+Tab
+        xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
+
+        // Event loop
+        loop {
+            let mut event: xlib::XEvent = std::mem::zeroed();
+            xlib::XNextEvent(display, &mut event);
+
+            match event.get_type() {
+                xlib::KeyPress => {
+                    println!("Alt+Tab Pressed");
+                    // Handle window switching logic here
+                }
+                _ => {}
+            }
+        }
+
+        xlib::XCloseDisplay(display);
+    }
+    
     let jh1 = std::thread::spawn(|| { tray() });
     let jh2 = std::thread::spawn(|| { logic() });
 
