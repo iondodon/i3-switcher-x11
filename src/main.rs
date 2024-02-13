@@ -108,14 +108,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                         println!("Tab Released\n");
                         // Handle Alt release logic here
                     }
+                    let pressed = is_alt_pressed(display);
+            println!("ALT pressed = {}", pressed);
                 },
                 _ => {
                     println!("Hmmmm");
                 }
             }
-
-            let pressed = is_alt_pressed(display);
-            println!("ALT pressed = {}", pressed);
         }
 
         // xlib::XCloseDisplay(display); // Never reached in this loop example
