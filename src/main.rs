@@ -1,11 +1,14 @@
+use gdk4::glib::listenv;
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
-use x11::xlib::{self, XOpenDisplay, _XDisplay};
+use x11::xlib::{self, KBBellDuration, XOpenDisplay, _XDisplay};
 use std::error::Error;
-use std::ptr;
+use std::sync::Mutex;
+use std::time::Duration;
+use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
 
 fn focus_window(window_id: i64) {
@@ -47,10 +50,8 @@ fn logic() {
 }
 
 
-fn is_alt_pressed(display: *mut _XDisplay) -> bool {
+fn is_alt_pressed(alt_key: i32) -> bool {
     unsafe {
-        let alt_key = xlib::XKeysymToKeycode(display, x11::keysym::XK_Alt_L as u64) as i32;
-
          // Use a separate thread to periodically check the state of the Alt key
         let display_check = XOpenDisplay(ptr::null());
         let mut keys_return: [i8; 32] = [0; 32];
@@ -96,7 +97,14 @@ fn main() -> Result<(), Box<dyn Error>> {
             match event.get_type() {
                 xlib::KeyPress => {
                     println!("Alt+Tab Pressed\n");
-                    // Handle window switching logic here
+                    
+                    thread::spawn(move || {
+                        loop {
+                            let pressed = is_alt_pressed(alt_key);
+                            println!("ALT pressed = {}", pressed);
+                            thread::sleep(Duration::from_millis(100));
+                        }
+                    });
                 },
                 xlib::KeyRelease => {
                     let xkey = xlib::XKeyEvent::from(event);
@@ -108,8 +116,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         println!("Tab Released\n");
                         // Handle Alt release logic here
                     }
-                    let pressed = is_alt_pressed(display);
-            println!("ALT pressed = {}", pressed);
                 },
                 _ => {
                     println!("Hmmmm");
