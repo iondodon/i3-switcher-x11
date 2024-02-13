@@ -1,5 +1,7 @@
+use gtk4::glib::GString;
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
-use gtk4::{Application, ApplicationWindow, Button};
+use gtk4::prelude::WidgetExt;
+use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
 use core::time;
@@ -18,7 +20,7 @@ fn print_window_names(node: &Node) {
     if node.nodetype == NodeType::Workspace {
         println!("{:?}\n\n", node.nodes);
         focus_window(node.id);
-        thread::sleep(time::Duration::from_secs(2));
+        // thread::sleep(time::Duration::from_secs(2));
     }
 
     // Recurse into this node's children and floating nodes
@@ -67,6 +69,20 @@ fn main() -> Result<(), Box<dyn Error>> {
             eprintln!("Clicked!");
         });
         window.set_child(Some(&button));
+
+        // Create a new EventControllerKey for detecting key events
+        let controller = EventControllerKey::new();
+
+        let window_clone = window.clone();
+        controller.connect_key_released(move |_, keyval, _, _| {
+            match keyval.name().unwrap().as_str() {
+                "Alt_L" => window_clone.hide(),
+                _ => println!("Key release ignored")
+            }
+        });
+
+        // Attach the event controller to the window
+        window.add_controller(controller);
 
         window.present();
     });
