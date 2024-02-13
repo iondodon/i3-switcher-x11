@@ -3,7 +3,9 @@ use gtk::{Application, ApplicationWindow, Button};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
 use core::time;
+use std::error::Error;
 use std::{self, thread};
+use tokio::try_join;
 
 fn focus_window(window_id: i64) {
     let mut connection = I3Connection::connect().unwrap();
@@ -28,32 +30,36 @@ fn print_window_names(node: &Node) {
     }
 }
 
-fn main() {
-    thread::spawn(|| {
-        let application = Application::builder()
-        .application_id("com.example.FirstGtkApp")
-        .build();
+async fn tray() {
+    print!("HELLOOOO");
+}
 
-        application.connect_activate(|app| {
-            let window = ApplicationWindow::builder()
-                .application(app)
-                .title("First GTK Program")
-                .default_width(350)
-                .default_height(70)
-                .build();
+async fn ui() {
+    let application = Application::builder()
+    .application_id("com.example.FirstGtkApp")
+    .build();
 
-            let button = Button::with_label("Click me!");
-            button.connect_clicked(|_| {
-                eprintln!("Clicked!");
-            });
-            window.add(&button);
+    application.connect_activate(|app| {
+        let window = ApplicationWindow::builder()
+            .application(app)
+            .title("First GTK Program")
+            .default_width(350)
+            .default_height(70)
+            .build();
 
-            window.show_all();
+        let button = Button::with_label("Click me!");
+        button.connect_clicked(|_| {
+            eprintln!("Clicked!");
         });
+        window.add(&button);
 
-        application.run();
+        window.show_all();
     });
-    
+
+    application.run();
+}
+
+async fn logic() {
     // Establish a connection to the i3 IPC interface
     let mut connection = I3Connection::connect().unwrap();
 
@@ -62,4 +68,15 @@ fn main() {
 
     // Recursively print the names of all windows
     print_window_names(&tree);
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let jh1 = tokio::spawn(tray());
+    let jh2 = tokio::spawn(ui());
+    let jh3 = tokio::spawn(logic());
+
+    try_join!(jh1, jh2, jh3)?;
+
+    Ok(())
 }
