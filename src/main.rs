@@ -1,8 +1,7 @@
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
 use core::time;
-use std::{self, ptr, thread};
-use x11::xlib;
+use std::{self, thread};
 
 fn focus_window(window_id: i64) {
     let mut connection = I3Connection::connect().unwrap();
@@ -10,47 +9,12 @@ fn focus_window(window_id: i64) {
     connection.run_command(&command).unwrap();
 }
 
-fn print_x11_window_info(window_id: i64) {
-    unsafe {
-        let display = xlib::XOpenDisplay(ptr::null_mut());
-        if display.is_null() {
-            eprintln!("Cannot open display");
-            return;
-        }
-
-        let mut attributes: xlib::XWindowAttributes = std::mem::zeroed();
-        xlib::XGetWindowAttributes(display, window_id as xlib::Window, &mut attributes);
-
-        // Getting window name
-        let mut window_name = ptr::null_mut();
-        xlib::XFetchName(display, window_id as xlib::Window, &mut window_name);
-        let window_name = if !window_name.is_null() {
-            let window_name_c_str = std::ffi::CStr::from_ptr(window_name);
-            let window_name_str = window_name_c_str.to_str().unwrap_or("");
-            xlib::XFree(window_name as *mut _);
-            window_name_str.to_string()
-        } else {
-            "Unknown".to_string()
-        };
-
-        println!("Window ID: {:x}", window_id);
-        println!("Window Name: {}", window_name);
-        println!("Attributes: ({:?})", attributes);
-
-        xlib::XCloseDisplay(display);
-    }
-}
-
 fn print_window_names(node: &Node) {
     // If this node represents a window, print its name
-    if let Some(ref name) = node.name{
-        if node.nodetype == NodeType::Con {
-            println!("Window id: {}, name: {} \n", node.id, name);
-            focus_window(node.id);
-            if let Some(window_id) = node.window {
-                print_x11_window_info(window_id as i64);
-            }
-        }
+    if node.nodetype == NodeType::Workspace {
+        println!("{:?}\n\n", node.nodes);
+        focus_window(node.id);
+        thread::sleep(time::Duration::from_secs(2));
     }
 
     // Recurse into this node's children and floating nodes
