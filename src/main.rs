@@ -57,28 +57,49 @@ fn main() -> Result<(), Box<dyn Error>> {
         let screen = xlib::XDefaultScreen(display);
         let root_window = xlib::XRootWindow(display, screen);
 
-        // KeyCode for 'Tab' and modifier for 'Alt'
-        let tab_key = xlib::XKeysymToKeycode(display, 0xFF09 as u64) as i32;
+        // Define the keysym for Tab and Alt
+        const XK_TAB: u64 = 0xFF09;
+        const XK_ALT_L: u64 = 0xFFE9; // Left Alt keysym
+        let tab_key = xlib::XKeysymToKeycode(display, XK_TAB) as i32;
+        let alt_key = xlib::XKeysymToKeycode(display, XK_ALT_L) as i32;
         let alt_mask = xlib::Mod1Mask;
 
         // Grab Alt+Tab
         xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
+
+        // Optionally grab the Alt key specifically if needed
+        // xlib::XGrabKey(display, alt_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
 
         // Event loop
         loop {
             let mut event: xlib::XEvent = std::mem::zeroed();
             xlib::XNextEvent(display, &mut event);
 
+            println!("\n Event: {:?}", event);
+
             match event.get_type() {
                 xlib::KeyPress => {
-                    println!("Alt+Tab Pressed");
+                    println!("Alt+Tab Pressed\n");
                     // Handle window switching logic here
+                },
+                xlib::KeyRelease => {
+                    let xkey = xlib::XKeyEvent::from(event);
+                    if xkey.keycode == alt_key as u32 {
+                        println!("Alt Released\n");
+                        // Handle Alt release logic here
+                    }
+                    if xkey.keycode == tab_key as u32 {
+                        println!("Tab Released\n");
+                        // Handle Alt release logic here
+                    }
+                },
+                _ => {
+                    println!("Hmmmm");
                 }
-                _ => {}
             }
         }
 
-        xlib::XCloseDisplay(display);
+        // xlib::XCloseDisplay(display); // Never reached in this loop example
     }
     
     let jh1 = std::thread::spawn(|| { tray() });
