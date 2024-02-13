@@ -35,8 +35,7 @@ fn print_x11_window_info(window_id: i64) {
 
         println!("Window ID: {:x}", window_id);
         println!("Window Name: {}", window_name);
-        println!("Position: ({}, {})", attributes.x, attributes.y);
-        println!("Size: {}x{}", attributes.width, attributes.height);
+        println!("Attributes: ({:?})", attributes);
 
         xlib::XCloseDisplay(display);
     }
@@ -51,7 +50,6 @@ fn print_window_names(node: &Node) {
             if let Some(window_id) = node.window {
                 print_x11_window_info(window_id as i64);
             }
-            thread::sleep(time::Duration::from_secs(2));
         }
     }
 
