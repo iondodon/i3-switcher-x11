@@ -1,10 +1,11 @@
-use gtk::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt, ContainerExt, WidgetExt};
-use gtk::{Application, ApplicationWindow, Button};
+use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
+use gtk4::{Application, ApplicationWindow, Button};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
 use core::time;
 use std::error::Error;
 use std::{self, thread};
+use gtk4::prelude::GtkWindowExt;
 
 fn focus_window(window_id: i64) {
     let mut connection = I3Connection::connect().unwrap();
@@ -50,8 +51,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let jh2 = std::thread::spawn(|| { logic() });
 
     let application = Application::builder()
-    .application_id("com.example.FirstGtkApp")
-    .build();
+        .application_id("com.example.FirstGtkApp")
+        .build();
 
     application.connect_activate(|app| {
         let window = ApplicationWindow::builder()
@@ -65,9 +66,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         button.connect_clicked(|_| {
             eprintln!("Clicked!");
         });
-        window.add(&button);
+        window.set_child(Some(&button));
 
-        window.show_all();
+        window.present();
     });
 
     application.run();
