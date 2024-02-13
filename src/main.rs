@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
 
         // Optionally grab the Alt key specifically if needed
-        // xlib::XGrabKey(display, alt_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
+        xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
 
         // Event loop
         loop {
