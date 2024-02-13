@@ -1,3 +1,6 @@
+
+use gtk::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt, ContainerExt, WidgetExt};
+use gtk::{Application, ApplicationWindow, Button};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
 use core::time;
@@ -27,6 +30,29 @@ fn print_window_names(node: &Node) {
 }
 
 fn main() {
+    let application = Application::builder()
+        .application_id("com.example.FirstGtkApp")
+        .build();
+
+    application.connect_activate(|app| {
+        let window = ApplicationWindow::builder()
+            .application(app)
+            .title("First GTK Program")
+            .default_width(350)
+            .default_height(70)
+            .build();
+
+        let button = Button::with_label("Click me!");
+        button.connect_clicked(|_| {
+            eprintln!("Clicked!");
+        });
+        window.add(&button);
+
+        window.show_all();
+    });
+
+    application.run();
+    
     // Establish a connection to the i3 IPC interface
     let mut connection = I3Connection::connect().unwrap();
 
