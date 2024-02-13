@@ -5,7 +5,6 @@ use i3ipc::reply::Node;
 use core::time;
 use std::error::Error;
 use std::{self, thread};
-use tokio::try_join;
 
 fn focus_window(window_id: i64) {
     let mut connection = I3Connection::connect().unwrap();
@@ -30,11 +29,26 @@ fn print_window_names(node: &Node) {
     }
 }
 
-async fn tray() {
+fn tray() {
     print!("HELLOOOO");
 }
 
-async fn ui() {
+fn logic() {
+    // Establish a connection to the i3 IPC interface
+    let mut connection = I3Connection::connect().unwrap();
+
+    // Query the layout tree
+    let tree = connection.get_tree().unwrap();
+
+    // Recursively print the names of all windows
+    print_window_names(&tree);
+}
+
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let jh1 = std::thread::spawn(|| { tray() });
+    let jh2 = std::thread::spawn(|| { logic() });
+
     let application = Application::builder()
     .application_id("com.example.FirstGtkApp")
     .build();
@@ -57,26 +71,9 @@ async fn ui() {
     });
 
     application.run();
-}
 
-async fn logic() {
-    // Establish a connection to the i3 IPC interface
-    let mut connection = I3Connection::connect().unwrap();
-
-    // Query the layout tree
-    let tree = connection.get_tree().unwrap();
-
-    // Recursively print the names of all windows
-    print_window_names(&tree);
-}
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let jh1 = tokio::spawn(tray());
-    let jh2 = tokio::spawn(ui());
-    let jh3 = tokio::spawn(logic());
-
-    try_join!(jh1, jh2, jh3)?;
+    let _ = jh1.join();
+    let _ = jh2.join();
 
     Ok(())
 }

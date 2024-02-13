@@ -9,5 +9,4 @@ build = "build.rs"
 [dependencies]
 gtk = { version = "0.18.1", package = "gtk" }
 i3ipc = "0.10.1"
-tokio = { version = "1.36.0", features = ["full"] }
 x11 = "2.21.0"
