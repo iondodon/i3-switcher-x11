@@ -1,10 +1,13 @@
+use gdk4::glib::{self, clone};
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use x11::xlib::{self};
 use std::error::Error;
+use std::time::Duration;
 use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
+use gtk4::glib::ControlFlow;
 
 fn listen_alt_tab() {
     unsafe {
@@ -34,7 +37,7 @@ fn listen_alt_tab() {
 
             match event.get_type() {
                 xlib::KeyPress => {
-                    println!("Alt+Tab Pressed\n");
+                    println!("Alt+Tab Pressed");
                 },
                 _ => {
                     println!("Hmmmm");
@@ -75,7 +78,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         let window_clone = window.clone();
         controller.connect_key_released(move |_, keyval, _, _| {
             match keyval.name().unwrap().as_str() {
-                "Alt_L" => window_clone.hide(),
+                "Alt_L" => { 
+                    window_clone.hide(); 
+                    println!("Alt released gtk");
+                },
                 _ => println!("Key release ignored")
             }
         });
@@ -84,6 +90,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         window.add_controller(controller);
 
         window.present();
+
+        glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
+            window.show();
+            glib::ControlFlow::Continue
+        }));
     });
 
     application.run();
