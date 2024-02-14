@@ -4,12 +4,14 @@ use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use x11::xlib::{self};
 use std::error::Error;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
 
-fn listen_alt_tab() {
+fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
     unsafe {
         let display = xlib::XOpenDisplay(ptr::null());
         if display.is_null() {
@@ -38,6 +40,7 @@ fn listen_alt_tab() {
             match event.get_type() {
                 xlib::KeyPress => {
                     println!("Alt+Tab Pressed");
+                    is_visible.store(true, Ordering::SeqCst);
                 },
                 _ => {
                     println!("Hmmmm");
@@ -52,13 +55,17 @@ fn listen_alt_tab() {
 
 fn main() -> Result<(), Box<dyn Error>> {
     
-    thread::spawn(|| { listen_alt_tab() });
+    let is_visible = Arc::new(AtomicBool::new(true));
+
+    let is_visible_for_listener = is_visible.clone();
+    thread::spawn(|| { listen_alt_tab(is_visible_for_listener) });
     
     let application = Application::builder()
         .application_id("com.example.FirstGtkApp")
         .build();
 
-    application.connect_activate(|app| {
+    let is_visible_for_gtk = is_visible.clone();
+    application.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
             .application(app)
             .title("First GTK Program")
@@ -76,11 +83,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let controller = EventControllerKey::new();
 
         let window_clone = window.clone();
+        let is_v_for_gtk_listener = is_visible_for_gtk.clone();
         controller.connect_key_released(move |_, keyval, _, _| {
             match keyval.name().unwrap().as_str() {
                 "Alt_L" => { 
                     window_clone.hide(); 
                     println!("Alt released gtk");
+                    is_v_for_gtk_listener.store(false, Ordering::SeqCst);
                 },
                 _ => println!("Key release ignored")
             }
@@ -91,8 +100,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         window.present();
 
+        let v = is_visible_for_gtk.clone();
         glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
-            window.show();
+            if v.load(Ordering::SeqCst) {
+                window.show();
+            }
             glib::ControlFlow::Continue
         }));
     });
