@@ -57,14 +57,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     let is_visible = Arc::new(AtomicBool::new(true));
 
-    let is_visible_for_listener = is_visible.clone();
-    thread::spawn(|| { listen_alt_tab(is_visible_for_listener) });
+    let is_visible_clone = is_visible.clone();
+    thread::spawn(|| { listen_alt_tab(is_visible_clone) });
     
     let application = Application::builder()
         .application_id("com.example.FirstGtkApp")
         .build();
 
-    let is_visible_for_gtk = is_visible.clone();
     application.connect_activate(move |app| {
         let window = ApplicationWindow::builder()
             .application(app)
@@ -83,13 +82,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         let controller = EventControllerKey::new();
 
         let window_clone = window.clone();
-        let is_v_for_gtk_listener = is_visible_for_gtk.clone();
+        let is_visible_clone = is_visible.clone();
         controller.connect_key_released(move |_, keyval, _, _| {
             match keyval.name().unwrap().as_str() {
                 "Alt_L" => { 
                     window_clone.hide(); 
                     println!("Alt released gtk");
-                    is_v_for_gtk_listener.store(false, Ordering::SeqCst);
+                    is_visible_clone.store(false, Ordering::SeqCst);
                 },
                 _ => println!("Key release ignored")
             }
@@ -100,9 +99,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         window.present();
 
-        let v = is_visible_for_gtk.clone();
+        let is_visible_clone = is_visible.clone();
         glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
-            if v.load(Ordering::SeqCst) {
+            if is_visible_clone.load(Ordering::SeqCst) {
                 window.show();
             }
             glib::ControlFlow::Continue
