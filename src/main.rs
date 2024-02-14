@@ -23,7 +23,9 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
 
         // Define the keysym for Tab and Alt
         const XK_TAB: u64 = 0xFF09;
+        const XK_ALT_L: u64 = 0xFFE9; // Left Alt keysym
         let tab_key = xlib::XKeysymToKeycode(display, XK_TAB) as i32;
+        let alt_key = xlib::XKeysymToKeycode(display, XK_ALT_L) as i32;
         let alt_mask = xlib::Mod1Mask;
 
         // Grab Alt+Tab
@@ -42,10 +44,21 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
                     println!("Alt+Tab Pressed");
                     is_visible.store(true, Ordering::SeqCst);
                 },
+                xlib::KeyRelease => {
+                    let xkey = xlib::XKeyEvent::from(event);
+                    if xkey.keycode == alt_key as u32 {
+                        is_visible.store(false, Ordering::SeqCst);
+                    }
+                    if xkey.keycode == tab_key as u32 {
+                        //
+                    }
+                }
                 _ => {
                     println!("Hmmmm");
                 }
             }
+
+            // thread::sleep(Duration::from_millis(200));
         }
 
         // xlib::XCloseDisplay(display); // Never reached in this loop example
@@ -54,7 +67,6 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
 
 
 fn main() -> Result<(), Box<dyn Error>> {
-    
     let is_visible = Arc::new(AtomicBool::new(true));
 
     let is_visible_clone = is_visible.clone();
@@ -101,8 +113,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let is_visible_clone = is_visible.clone();
         glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
+            println!("Now is {}", is_visible_clone.load(Ordering::SeqCst));
             if is_visible_clone.load(Ordering::SeqCst) {
                 window.show();
+            } else {
+                window.hide();
             }
             glib::ControlFlow::Continue
         }));
