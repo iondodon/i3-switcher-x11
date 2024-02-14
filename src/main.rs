@@ -9,62 +9,7 @@ use std::time::Duration;
 use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
 
-fn focus_window(window_id: i64) {
-    let mut connection = I3Connection::connect().unwrap();
-    let command = format!("[con_id={}] focus", window_id);
-    connection.run_command(&command).unwrap();
-}
-
-fn print_window_names(node: &Node) {
-    // If this node represents a window, print its name
-    if node.nodetype == NodeType::Workspace {
-        println!("{:?}\n\n", node.nodes);
-        focus_window(node.id);
-        // thread::sleep(time::Duration::from_secs(2));
-    }
-
-    // Recurse into this node's children and floating nodes
-    for child in &node.nodes {
-        print_window_names(child);
-    }
-    for floating in &node.floating_nodes {
-        print_window_names(floating);
-    }
-}
-
-fn tray() {
-    print!("HELLOOOO");
-}
-
-fn logic() {
-    // Establish a connection to the i3 IPC interface
-    let mut connection = I3Connection::connect().unwrap();
-
-    // Query the layout tree
-    let tree = connection.get_tree().unwrap();
-
-    // Recursively print the names of all windows
-    print_window_names(&tree);
-}
-
-
-fn is_alt_pressed(alt_key: i32) -> bool {
-    unsafe {
-         // Use a separate thread to periodically check the state of the Alt key
-        let display_check = XOpenDisplay(ptr::null());
-        let mut keys_return: [i8; 32] = [0; 32];
-        xlib::XQueryKeymap(display_check, keys_return.as_mut_ptr());
-
-        let is_alt_pressed = (keys_return[(alt_key / 8) as usize] & (1 << (alt_key % 8))) != 0;
-
-        xlib::XCloseDisplay(display_check);
-   
-        return is_alt_pressed;
-    }
-}
-
-
-fn main() -> Result<(), Box<dyn Error>> {
+fn listen_alt_tab() {
     unsafe {
         let display = xlib::XOpenDisplay(ptr::null());
         if display.is_null() {
@@ -92,29 +37,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut event: xlib::XEvent = std::mem::zeroed();
             xlib::XNextEvent(display, &mut event);
 
-            println!("\n Event: {:?}", event);
-
             match event.get_type() {
                 xlib::KeyPress => {
                     println!("Alt+Tab Pressed\n");
-                    
-                    thread::spawn(move || {
-                        while is_alt_pressed(alt_key) {
-                            println!("ALT pressed");
-                            thread::sleep(Duration::from_millis(100));
-                        }
-                    });
-                },
-                xlib::KeyRelease => {
-                    let xkey = xlib::XKeyEvent::from(event);
-                    if xkey.keycode == alt_key as u32 {
-                        println!("Alt Released\n");
-                        // Handle Alt release logic here
-                    }
-                    if xkey.keycode == tab_key as u32 {
-                        println!("Tab Released\n");
-                        // Handle Alt release logic here
-                    }
                 },
                 _ => {
                     println!("Hmmmm");
@@ -124,10 +49,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // xlib::XCloseDisplay(display); // Never reached in this loop example
     }
-    
-    let jh1 = std::thread::spawn(|| { tray() });
-    let jh2 = std::thread::spawn(|| { logic() });
+}
 
+
+fn main() -> Result<(), Box<dyn Error>> {
+    
+    thread::spawn(|| { listen_alt_tab() });
+    
     let application = Application::builder()
         .application_id("com.example.FirstGtkApp")
         .build();
@@ -164,9 +92,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     application.run();
-
-    let _ = jh1.join();
-    let _ = jh2.join();
 
     Ok(())
 }
