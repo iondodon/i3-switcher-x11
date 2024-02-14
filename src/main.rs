@@ -1,7 +1,10 @@
 use gdk4::glib::{self, clone};
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
+use gtk4::prelude::BoxExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
+use i3ipc::reply::{Node, NodeType};
+use i3ipc::I3Connection;
 use x11::xlib::{self};
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -64,9 +67,36 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
     }
 }
 
+fn focus_window(window_id: i64) {
+    let mut connection = I3Connection::connect().unwrap();
+    let command = format!("[con_id={}] focus", window_id);
+    connection.run_command(&command).unwrap();
+}
+
+fn print_window_names(node: &Node) {
+    // If this node represents a window, print its name
+    if node.nodetype == NodeType::Workspace {
+        println!("{:?}\n\n", node.nodes);
+        focus_window(node.id);
+    }
+
+    // Recurse into this node's children and floating nodes
+    for child in &node.nodes {
+        print_window_names(child);
+    }
+    for floating in &node.floating_nodes {
+        print_window_names(floating);
+    }
+}
+
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Establish a connection to the i3 IPC interface
+    let mut connection = I3Connection::connect().unwrap();
+
     let is_visible = Arc::new(AtomicBool::new(true));
+
+    let workspaces = connection.get_workspaces().unwrap();
 
     let is_visible_clone = is_visible.clone();
     thread::spawn(|| { listen_alt_tab(is_visible_clone) });
@@ -83,15 +113,25 @@ fn main() -> Result<(), Box<dyn Error>> {
             .default_height(70)
             .build();
 
-        let button = Button::with_label("Click me!");
-        button.connect_clicked(|_| {
-            eprintln!("Clicked!");
-        });
-        window.set_child(Some(&button));
+         // Create a vertical GtkBox to hold the buttons
+        let vbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 1);
+
+        for ws in &workspaces.workspaces {
+            let button = Button::with_label(&ws.name);
+            button.connect_clicked(|_| {
+                eprintln!("Clicked!");
+                // You might want to call focus_window(ws.id) here
+            });
+
+            // Add each button to the vbox container
+            vbox.append(&button); // Use append for GTK 4
+        }
+
+        // Set the vbox as the child of the window
+        window.set_child(Some(&vbox));
 
         // Create a new EventControllerKey for detecting key events
         let controller = EventControllerKey::new();
-
         let window_clone = window.clone();
         let is_visible_clone = is_visible.clone();
         controller.connect_key_released(move |_, keyval, _, _| {
@@ -104,8 +144,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 _ => println!("Key release ignored")
             }
         });
-
-        // Attach the event controller to the window
         window.add_controller(controller);
 
         window.present();
