@@ -1,11 +1,8 @@
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
-use i3ipc::{reply::NodeType, I3Connection};
-use i3ipc::reply::Node;
-use x11::xlib::{self, XOpenDisplay};
+use x11::xlib::{self};
 use std::error::Error;
-use std::time::Duration;
 use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
 
@@ -21,9 +18,7 @@ fn listen_alt_tab() {
 
         // Define the keysym for Tab and Alt
         const XK_TAB: u64 = 0xFF09;
-        const XK_ALT_L: u64 = 0xFFE9; // Left Alt keysym
         let tab_key = xlib::XKeysymToKeycode(display, XK_TAB) as i32;
-        let alt_key = xlib::XKeysymToKeycode(display, XK_ALT_L) as i32;
         let alt_mask = xlib::Mod1Mask;
 
         // Grab Alt+Tab
