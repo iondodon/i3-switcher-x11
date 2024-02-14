@@ -1,12 +1,10 @@
-use gdk4::glib::listenv;
 use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
 use i3ipc::{reply::NodeType, I3Connection};
 use i3ipc::reply::Node;
-use x11::xlib::{self, KBBellDuration, XOpenDisplay, _XDisplay};
+use x11::xlib::{self, XOpenDisplay};
 use std::error::Error;
-use std::sync::Mutex;
 use std::time::Duration;
 use std::{ptr, thread};
 use gtk4::prelude::GtkWindowExt;
@@ -58,6 +56,8 @@ fn is_alt_pressed(alt_key: i32) -> bool {
         xlib::XQueryKeymap(display_check, keys_return.as_mut_ptr());
 
         let is_alt_pressed = (keys_return[(alt_key / 8) as usize] & (1 << (alt_key % 8))) != 0;
+
+        xlib::XCloseDisplay(display_check);
    
         return is_alt_pressed;
     }
@@ -99,9 +99,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     println!("Alt+Tab Pressed\n");
                     
                     thread::spawn(move || {
-                        loop {
-                            let pressed = is_alt_pressed(alt_key);
-                            println!("ALT pressed = {}", pressed);
+                        while is_alt_pressed(alt_key) {
+                            println!("ALT pressed");
                             thread::sleep(Duration::from_millis(100));
                         }
                     });
