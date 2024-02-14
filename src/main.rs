@@ -58,10 +58,9 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
                 }
             }
 
-            // thread::sleep(Duration::from_millis(200));
         }
 
-        // xlib::XCloseDisplay(display); // Never reached in this loop example
+        // xlib::XCloseDisplay(display); // Never reached in this loop example, showld be called when the app is closed.
     }
 }
 
