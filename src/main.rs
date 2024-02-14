@@ -3,7 +3,6 @@ use gtk4::prelude::{ApplicationExt, ApplicationExtManual, ButtonExt};
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
 use gtk4::{Application, ApplicationWindow, Button, EventControllerKey};
-use i3ipc::reply::{Node, NodeType};
 use i3ipc::I3Connection;
 use x11::xlib::{self};
 use std::error::Error;
@@ -73,28 +72,12 @@ fn focus_window(window_id: i64) {
     connection.run_command(&command).unwrap();
 }
 
-fn print_window_names(node: &Node) {
-    // If this node represents a window, print its name
-    if node.nodetype == NodeType::Workspace {
-        println!("{:?}\n\n", node.nodes);
-        focus_window(node.id);
-    }
-
-    // Recurse into this node's children and floating nodes
-    for child in &node.nodes {
-        print_window_names(child);
-    }
-    for floating in &node.floating_nodes {
-        print_window_names(floating);
-    }
-}
-
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Establish a connection to the i3 IPC interface
     let mut connection = I3Connection::connect().unwrap();
 
-    let is_visible = Arc::new(AtomicBool::new(true));
+    let is_visible = Arc::new(AtomicBool::new(false));
 
     let workspaces = connection.get_workspaces().unwrap();
 
@@ -145,8 +128,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         });
         window.add_controller(controller);
-
         window.present();
+        window.hide();
 
         let is_visible_clone = is_visible.clone();
         glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
