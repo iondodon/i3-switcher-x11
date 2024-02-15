@@ -1,5 +1,4 @@
 use gdk4::glib::{self, clone};
-use gtk4::gsk;
 use gtk4::prelude::ButtonExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
