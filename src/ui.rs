@@ -1,9 +1,11 @@
 use gdk4::glib::{self, clone};
-use gtk4::prelude::ButtonExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
+use gtk4::prelude::FrameExt;
 use gtk4::Application;
-use gtk4::{ApplicationWindow, Button, EventControllerKey};
+use gtk4::Frame;
+use gtk4::Image;
+use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -64,19 +66,19 @@ use x11::xlib;
 
 
 fn update_window_content(window: &ApplicationWindow, i3_conn: Arc<Mutex<I3Connection>>) {
-    let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 1);
+    let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
     hbox.set_hexpand(true);
 
     let mut i3_conn = i3_conn.lock().unwrap();
     let wks = i3_conn.get_workspaces().unwrap();
 
     for ws in &wks.workspaces {
-        let button = Button::with_label(&ws.name);
-        button.connect_clicked(|_| {
-            eprintln!("Clicked!");
-        });
+        let ws_frame = Frame::new(Some(&ws.name));
 
-        hbox.append(&button);
+        let img = Image::new();
+
+        ws_frame.set_child(Some(&img));
+        hbox.append(&ws_frame);
     }
 
     window.set_child(Some(&hbox));
