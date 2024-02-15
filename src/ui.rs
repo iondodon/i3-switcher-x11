@@ -22,9 +22,6 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
         .hexpand(true)
         .build();
 
-    let c = window.css_classes();
-    println!("{:?}", c);
-
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
     let is_visible_clone = is_visible.clone();
@@ -39,10 +36,11 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
         }
     });
     window.add_controller(controller);
+    
+    update_window_content(&window, i3_conn.clone());
+    
     window.present();
     window.hide();
-
-    update_window_content(&window, i3_conn.clone());
 
     let is_visible_clone = is_visible.clone();
     let i3_conn_clone = i3_conn.clone();
