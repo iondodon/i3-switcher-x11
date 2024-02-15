@@ -23,17 +23,14 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
         let screen = xlib::XDefaultScreen(display);
         let root_window = xlib::XRootWindow(display, screen);
 
-        // Define the keysym for Tab and Alt
-        const XK_TAB: u64 = 0xFF09;
-        const XK_ALT_L: u64 = 0xFFE9; // Left Alt keysym
+        
+        const XK_TAB: u64 = x11::keysym::XK_Tab as u64;
+        const XK_ALT_L: u64 = x11::keysym::XK_Alt_L as u64; 
         let tab_key = xlib::XKeysymToKeycode(display, XK_TAB) as i32;
         let alt_key = xlib::XKeysymToKeycode(display, XK_ALT_L) as i32;
         let alt_mask = xlib::Mod1Mask;
 
         // Grab Alt+Tab
-        xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
-
-        // Optionally grab the Alt key specifically if needed
         xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
 
         // Event loop
@@ -56,7 +53,7 @@ fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
                     }
                 }
                 _ => {
-                    println!("Hmmmm");
+                   
                 }
             }
 
