@@ -1,11 +1,9 @@
 use gdk4::glib::{self, clone};
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
-use gtk4::prelude::FrameExt;
 use gtk4::Application;
 use gtk4::CssProvider;
 use gtk4::Frame;
-use gtk4::Image;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
 use std::sync::atomic::AtomicBool;
@@ -16,9 +14,6 @@ use std::sync::Mutex;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
-use std::ptr;
-use x11::xlib;
-
 
 pub fn setup(
     app: &Application, i3_conn: Arc<Mutex<I3Connection>>, 
@@ -39,8 +34,8 @@ pub fn setup(
     controller.connect_key_released(move |_, keyval, _, _| {
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
-                window_clone.hide(); 
                 println!("Alt released gtk");
+                window_clone.hide(); 
                 is_visible_clone.store(false, Ordering::SeqCst);
                 selected_index_clone.store(-1, Ordering::SeqCst);
             },
@@ -66,79 +61,36 @@ pub fn setup(
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
     
-    update_window_content(&window, i3_conn.clone(), selected_index.clone());
-    
     window.present();
     window.hide();
 
     let is_visible_clone = is_visible.clone();
-    let selected_index_clone = selected_index.clone();
-    let i3_conn_clone = i3_conn.clone();
     glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
         println!("Now is {}", is_visible_clone.load(Ordering::SeqCst));
         if is_visible_clone.load(Ordering::SeqCst) {
-            update_window_content(&window, i3_conn_clone.to_owned(), selected_index_clone.to_owned());
-            { 
-                let wks_connt = i3_conn.lock().unwrap().get_workspaces().unwrap().workspaces.len();
-                if selected_index.load(Ordering::SeqCst) as usize > wks_connt - 1 {
-                    selected_index.store(0, Ordering::SeqCst);
-                }
+            let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
+            hbox.set_homogeneous(true);
+
+            let wks = i3_conn.lock().unwrap().get_workspaces().unwrap().workspaces;
+            let mut sindex = selected_index.load(Ordering::SeqCst);
+            if sindex as usize > wks.len() - 1 {
+                sindex = 0;
+                selected_index.store(0, Ordering::SeqCst);
             }
+            for (index, ws) in (&wks).iter().enumerate() {
+                let ws_frame = Frame::builder().label(ws.name.to_string()).build();
+                if index as i8 == sindex {
+                    ws_frame.add_css_class("selected_frame");
+                }
+                hbox.append(&ws_frame);
+            }
+            
+            window.set_child(Some(&hbox));
+
             window.show();
         } else {
             window.hide();
         }
         glib::ControlFlow::Continue
     }));
-}
-
-
-fn update_window_content(
-    window: &ApplicationWindow, 
-    i3_conn: Arc<Mutex<I3Connection>>, 
-    selected_index: Arc<AtomicI8>
-) {
-    let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
-    hbox.set_hexpand(true);
-    hbox.set_homogeneous(true);
-
-    let mut i3_conn = i3_conn.lock().unwrap();
-    let wks = i3_conn.get_workspaces().unwrap();
-
-    let mut count = 0;
-    for ws in &wks.workspaces {
-        let ws_frame = Frame::new(Some(&ws.name));
-
-        if count == selected_index.load(Ordering::SeqCst) {
-            ws_frame.add_css_class("selected_frame");
-        }
-
-        let img = Image::new();
-
-        ws_frame.set_child(Some(&img));
-        hbox.append(&ws_frame);
-
-        count = count + 1;
-    }
-
-    window.set_child(Some(&hbox));
-
-    // move window to center
-    unsafe {
-        let display = xlib::XOpenDisplay(ptr::null());
-        let screen = xlib::XDefaultScreen(display);
-        let screen_width = xlib::XDisplayWidth(display, screen) as i32;
-        let screen_height = xlib::XDisplayHeight(display, screen) as i32;
-
-        let window_width = window.width();
-        let window_height = window.height();
-
-        let x = (screen_width - window_width) / 2;
-        let y = (screen_height - window_height) / 2;
-
-        let command = format!("[title=\"First GTK Program\"] move window to position {} {}", x, y);
-        i3_conn.run_command(&command).unwrap();
-
-        xlib::XCloseDisplay(display);
-    }
 }
