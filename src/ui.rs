@@ -4,8 +4,11 @@ use gtk4::prelude::BoxExt;
 use gtk4::Application;
 use gtk4::CssProvider;
 use gtk4::Frame;
+use gtk4::Image;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
+use x11::xlib;
+use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
@@ -24,8 +27,6 @@ pub fn setup(
     let window = ApplicationWindow::builder()
         .application(app)
         .title("First GTK Program")
-        .hexpand_set(true)
-        .hexpand(true)
         .build();
 
     let focused_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
@@ -82,14 +83,22 @@ pub fn setup(
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
             hbox.set_homogeneous(true);
 
-            let wks = i3_conn.lock().unwrap().get_workspaces().unwrap().workspaces;
+            let mut i3_conn_lock = i3_conn.lock().unwrap();
+            let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
             let mut sindex = selected_index.load(Ordering::SeqCst);
             if sindex as usize > wks.len() - 1 {
                 sindex = 0;
                 selected_index.store(0, Ordering::SeqCst);
             }
             for (index, ws) in (&wks).iter().enumerate() {
-                let ws_frame = Frame::builder().label(ws.name.to_string()).build();
+                let screenshot = Image::builder()
+                    .file(format!("/tmp/i3-switcher-x11/{}.png", ws.name))
+                    .build();
+                let ws_frame = Frame::builder()
+                    .label(ws.name.to_string())
+                    .child(&screenshot)
+                    .build();
+                ws_frame.set_width_request(250);
                 if index as i8 == sindex {
                     ws_frame.add_css_class("selected_frame");
                     let mut name = focused_ws_name_clone.lock().unwrap();
@@ -99,6 +108,26 @@ pub fn setup(
             }
             
             window.set_child(Some(&hbox));
+
+
+            // move window to center
+            unsafe {
+                let display = xlib::XOpenDisplay(ptr::null());
+                let screen = xlib::XDefaultScreen(display);
+                let screen_width = xlib::XDisplayWidth(display, screen) as i32;
+                let screen_height = xlib::XDisplayHeight(display, screen) as i32;
+
+                let window_width = window.width();
+                let window_height = window.height();
+
+                let x = (screen_width - window_width) / 2;
+                let y = (screen_height - window_height) / 2;
+
+                let command = format!("[title=\"First GTK Program\"] move window to position {} {}", x, y);
+                i3_conn_lock.run_command(&command).unwrap();
+
+                xlib::XCloseDisplay(display);
+            }
 
             window.show();
         } else {
