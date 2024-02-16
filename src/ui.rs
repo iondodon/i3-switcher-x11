@@ -8,6 +8,7 @@ use gtk4::Image;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
 use x11::xlib;
+use std::process::Command;
 use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
@@ -18,6 +19,20 @@ use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
 use crate::i3wm;
+
+fn capture_screenshot(workspace_name: String) {
+    println!("Capturing screenshot of workspace: {}", workspace_name);
+    let filename = format!("/tmp/i3-switcher-x11/{}.png", workspace_name);
+    Command::new("rm")
+        .arg(&filename)
+        .output()
+        .expect("Failed to remove screenshot");
+    Command::new("scrot")
+        .arg(&filename)
+        .output()
+        .expect("Failed to capture screenshot");
+    println!("Screenshot saved to {}", filename);
+}
 
 pub fn setup(
     app: &Application, i3_conn: Arc<Mutex<I3Connection>>, 
@@ -30,6 +45,7 @@ pub fn setup(
         .build();
 
     let focused_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let current_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
 
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
@@ -41,10 +57,16 @@ pub fn setup(
             "Alt_L" => { 
                 println!("Alt released gtk");
                 window_clone.hide(); 
+
+                let mut curr_ws_name = current_ws_name.lock().unwrap();
+                if let Some(name) = (*curr_ws_name).clone() {
+                    capture_screenshot(name);
+                }                         
                 
-                let name = focused_ws_name_clone.lock().unwrap();
-                if let Some(name) = (*name).clone() {
-                    i3wm::focus_workspace(name);
+                let focused_ws_name = focused_ws_name_clone.lock().unwrap();
+                if let Some(name) = (*focused_ws_name).clone() {
+                    i3wm::focus_workspace(name.clone());
+                    *curr_ws_name = Some(name);
                 }
 
                 is_visible_clone.store(false, Ordering::SeqCst);
