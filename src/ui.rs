@@ -3,6 +3,7 @@ use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
 use gtk4::prelude::FrameExt;
 use gtk4::Application;
+use gtk4::CssProvider;
 use gtk4::Frame;
 use gtk4::Image;
 use gtk4::{ApplicationWindow, EventControllerKey};
@@ -38,6 +39,23 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
         }
     });
     window.add_controller(controller);
+
+    let provider = CssProvider::new();
+    provider.load_from_data("
+        frame {
+            background-color: red;
+            border-radius: 0px;
+        }
+
+        .selected_frame {
+            background-color: blue;
+        }
+    ");
+    gtk4::style_context_add_provider_for_display(
+        &gdk4::Display::default().expect("Could not connect to a display."),
+        &provider,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
     
     update_window_content(&window, i3_conn.clone());
     
@@ -72,13 +90,20 @@ fn update_window_content(window: &ApplicationWindow, i3_conn: Arc<Mutex<I3Connec
     let mut i3_conn = i3_conn.lock().unwrap();
     let wks = i3_conn.get_workspaces().unwrap();
 
+    let mut count = 0;
     for ws in &wks.workspaces {
         let ws_frame = Frame::new(Some(&ws.name));
+
+        if count == 0 {
+            ws_frame.add_css_class("selected_frame");
+        }
 
         let img = Image::new();
 
         ws_frame.set_child(Some(&img));
         hbox.append(&ws_frame);
+
+        count = count + 1;
     }
 
     window.set_child(Some(&hbox));
