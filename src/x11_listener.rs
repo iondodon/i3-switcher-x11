@@ -1,9 +1,9 @@
-use std::{ptr, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{ptr, sync::{atomic::{AtomicBool, AtomicI8, Ordering}, Arc}};
 
 use x11::xlib;
 
 
-pub fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
+pub fn listen_alt_tab(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>) {
     unsafe {
         let display = xlib::XOpenDisplay(ptr::null());
         if display.is_null() {
@@ -32,11 +32,14 @@ pub fn listen_alt_tab(is_visible: Arc<AtomicBool>) {
                 xlib::KeyPress => {
                     println!("Alt+Tab Pressed");
                     is_visible.store(true, Ordering::SeqCst);
+                    let index = selected_index.load(Ordering::SeqCst);
+                    selected_index.store(index + 1, Ordering::SeqCst);
                 },
                 xlib::KeyRelease => {
                     let xkey = xlib::XKeyEvent::from(event);
                     if xkey.keycode == alt_key as u32 {
                         is_visible.store(false, Ordering::SeqCst);
+                        selected_index.store(-1, Ordering::SeqCst);
                     }
                     if xkey.keycode == tab_key as u32 {
                         //

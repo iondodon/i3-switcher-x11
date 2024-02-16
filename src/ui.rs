@@ -9,15 +9,22 @@ use gtk4::Image;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
+use std::ptr;
+use x11::xlib;
 
 
-pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: Arc<AtomicBool>) {
+pub fn setup(
+    app: &Application, i3_conn: Arc<Mutex<I3Connection>>, 
+    is_visible: Arc<AtomicBool>, 
+    selected_index: Arc<AtomicI8>
+) {
     let window = ApplicationWindow::builder()
         .application(app)
         .title("First GTK Program")
@@ -28,12 +35,14 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
     let is_visible_clone = is_visible.clone();
+    let selected_index_clone = selected_index.clone();
     controller.connect_key_released(move |_, keyval, _, _| {
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
                 window_clone.hide(); 
                 println!("Alt released gtk");
                 is_visible_clone.store(false, Ordering::SeqCst);
+                selected_index_clone.store(-1, Ordering::SeqCst);
             },
             _ => {}
         }
@@ -57,17 +66,24 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
         gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
     );
     
-    update_window_content(&window, i3_conn.clone());
+    update_window_content(&window, i3_conn.clone(), selected_index.clone());
     
     window.present();
     window.hide();
 
     let is_visible_clone = is_visible.clone();
+    let selected_index_clone = selected_index.clone();
     let i3_conn_clone = i3_conn.clone();
     glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
         println!("Now is {}", is_visible_clone.load(Ordering::SeqCst));
         if is_visible_clone.load(Ordering::SeqCst) {
-            update_window_content(&window, i3_conn_clone.to_owned());
+            update_window_content(&window, i3_conn_clone.to_owned(), selected_index_clone.to_owned());
+            { 
+                let wks_connt = i3_conn.lock().unwrap().get_workspaces().unwrap().workspaces.len();
+                if selected_index.load(Ordering::SeqCst) as usize > wks_connt - 1 {
+                    selected_index.store(0, Ordering::SeqCst);
+                }
+            }
             window.show();
         } else {
             window.hide();
@@ -77,15 +93,14 @@ pub fn setup(app: &Application, i3_conn: Arc<Mutex<I3Connection>>, is_visible: A
 }
 
 
-extern crate x11;
-
-use std::ptr;
-use x11::xlib;
-
-
-fn update_window_content(window: &ApplicationWindow, i3_conn: Arc<Mutex<I3Connection>>) {
+fn update_window_content(
+    window: &ApplicationWindow, 
+    i3_conn: Arc<Mutex<I3Connection>>, 
+    selected_index: Arc<AtomicI8>
+) {
     let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
     hbox.set_hexpand(true);
+    hbox.set_homogeneous(true);
 
     let mut i3_conn = i3_conn.lock().unwrap();
     let wks = i3_conn.get_workspaces().unwrap();
@@ -94,7 +109,7 @@ fn update_window_content(window: &ApplicationWindow, i3_conn: Arc<Mutex<I3Connec
     for ws in &wks.workspaces {
         let ws_frame = Frame::new(Some(&ws.name));
 
-        if count == 0 {
+        if count == selected_index.load(Ordering::SeqCst) {
             ws_frame.add_css_class("selected_frame");
         }
 
