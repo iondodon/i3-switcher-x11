@@ -14,7 +14,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::RwLock;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
@@ -22,7 +22,7 @@ use crate::i3wm;
 
 fn capture_screenshot(workspace_name: String) {
     println!("Capturing screenshot of workspace: {}", workspace_name);
-    let filename = format!("/tmp/i3-switcher-x11/{}.png", workspace_name);
+    let filename = format!("/tmp/{}.png", workspace_name);
     Command::new("rm")
         .arg(&filename)
         .output()
@@ -35,7 +35,7 @@ fn capture_screenshot(workspace_name: String) {
 }
 
 pub fn setup(
-    app: &Application, i3_conn: Arc<Mutex<I3Connection>>, 
+    app: &Application, i3_conn: Arc<RwLock<I3Connection>>, 
     is_visible: Arc<AtomicBool>, 
     selected_index: Arc<AtomicI8>
 ) {
@@ -44,8 +44,8 @@ pub fn setup(
         .title("First GTK Program")
         .build();
 
-    let focused_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
-    let current_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let focused_ws_name: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
+    let current_ws_name: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
 
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
@@ -60,12 +60,12 @@ pub fn setup(
                 is_visible_clone.store(false, Ordering::SeqCst);
                 selected_index_clone.store(-1, Ordering::SeqCst);
 
-                let mut curr_ws_name = current_ws_name.lock().unwrap();
+                let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
                     capture_screenshot(name);
                 }                         
                 
-                let focused_ws_name = focused_ws_name_clone.lock().unwrap();
+                let focused_ws_name = focused_ws_name_clone.read().unwrap();
                 if let Some(name) = (*focused_ws_name).clone() {
                     i3wm::focus_workspace(name.clone());
                     *curr_ws_name = Some(name);
@@ -104,7 +104,7 @@ pub fn setup(
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
             hbox.set_homogeneous(true);
 
-            let mut i3_conn_lock = i3_conn.lock().unwrap();
+            let mut i3_conn_lock = i3_conn.write().unwrap();
             let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
             let mut sindex = selected_index.load(Ordering::SeqCst);
             if sindex as usize > wks.len() - 1 {
@@ -113,7 +113,7 @@ pub fn setup(
             }
             for (index, ws) in (&wks).iter().enumerate() {
                 let screenshot = Image::builder()
-                    .file(format!("/tmp/i3-switcher-x11/{}.png", ws.name))
+                    .file(format!("/tmp/{}.png", ws.name))
                     .build();
                 let ws_frame = Frame::builder()
                     .label(ws.name.to_string())
@@ -122,7 +122,7 @@ pub fn setup(
                 ws_frame.set_width_request(250);
                 if index as i8 == sindex {
                     ws_frame.add_css_class("selected_frame");
-                    let mut name = focused_ws_name_clone.lock().unwrap();
+                    let mut name = focused_ws_name_clone.write().unwrap();
                     *name = Some(ws.name.clone());
                 }
                 hbox.append(&ws_frame);

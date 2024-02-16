@@ -3,7 +3,7 @@ use gtk4::Application;
 use i3ipc::I3Connection;
 use std::error::Error;
 use std::sync::atomic::{AtomicBool, AtomicI8};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::thread;
 
 mod x11_listener;
@@ -12,7 +12,7 @@ mod i3wm;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let i3_conn = I3Connection::connect().unwrap();
-    let i3_conn = Arc::new(Mutex::new(i3_conn)); 
+    let i3_conn = Arc::new(RwLock::new(i3_conn)); 
     let is_visible = Arc::new(AtomicBool::new(false));
     let selected_index = Arc::new(AtomicI8::new(-1));
 
