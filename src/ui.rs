@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
+use crate::i3wm;
 
 pub fn setup(
     app: &Application, i3_conn: Arc<Mutex<I3Connection>>, 
@@ -27,15 +28,24 @@ pub fn setup(
         .hexpand(true)
         .build();
 
+    let focused_ws_name: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
     let is_visible_clone = is_visible.clone();
     let selected_index_clone = selected_index.clone();
+    let focused_ws_name_clone = focused_ws_name.clone();
     controller.connect_key_released(move |_, keyval, _, _| {
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
                 println!("Alt released gtk");
                 window_clone.hide(); 
+                
+                let name = focused_ws_name_clone.lock().unwrap();
+                if let Some(name) = (*name).clone() {
+                    i3wm::focus_workspace(name);
+                }
+
                 is_visible_clone.store(false, Ordering::SeqCst);
                 selected_index_clone.store(-1, Ordering::SeqCst);
             },
@@ -65,6 +75,7 @@ pub fn setup(
     window.hide();
 
     let is_visible_clone = is_visible.clone();
+    let focused_ws_name_clone = focused_ws_name.clone();
     glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
         println!("Now is {}", is_visible_clone.load(Ordering::SeqCst));
         if is_visible_clone.load(Ordering::SeqCst) {
@@ -81,6 +92,8 @@ pub fn setup(
                 let ws_frame = Frame::builder().label(ws.name.to_string()).build();
                 if index as i8 == sindex {
                     ws_frame.add_css_class("selected_frame");
+                    let mut name = focused_ws_name_clone.lock().unwrap();
+                    *name = Some(ws.name.clone());
                 }
                 hbox.append(&ws_frame);
             }

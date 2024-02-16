@@ -8,6 +8,7 @@ use std::thread;
 
 mod x11_listener;
 mod ui;
+mod i3wm;
 
 
 fn main() -> Result<(), Box<dyn Error>> {
