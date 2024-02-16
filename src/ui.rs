@@ -56,7 +56,9 @@ pub fn setup(
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
                 println!("Alt released gtk");
-                window_clone.hide(); 
+                window_clone.hide();
+                is_visible_clone.store(false, Ordering::SeqCst);
+                selected_index_clone.store(-1, Ordering::SeqCst);
 
                 let mut curr_ws_name = current_ws_name.lock().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
@@ -68,9 +70,6 @@ pub fn setup(
                     i3wm::focus_workspace(name.clone());
                     *curr_ws_name = Some(name);
                 }
-
-                is_visible_clone.store(false, Ordering::SeqCst);
-                selected_index_clone.store(-1, Ordering::SeqCst);
             },
             _ => {}
         }
@@ -153,7 +152,9 @@ pub fn setup(
 
             window.show();
         } else {
-            window.hide();
+            if window.is_visible() {
+                window.hide();
+            }
         }
         glib::ControlFlow::Continue
     }));
