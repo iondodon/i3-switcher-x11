@@ -1,11 +1,7 @@
-use gdk4::gdk_pixbuf::Pixbuf;
-use gdk4::gio::ffi::GIcon;
-use gdk4::gio::{File, Icon};
-use gdk4::glib::property::PropertyGet;
 use gdk4::glib::{self, clone};
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
-use gtk4::{Application, IconLookupFlags, IconTheme, Image, Picture};
+use gtk4::Application;
 use gtk4::CssProvider;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
