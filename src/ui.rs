@@ -1,8 +1,11 @@
 use gdk4::gdk_pixbuf::Pixbuf;
+use gdk4::gio::ffi::GIcon;
+use gdk4::gio::{File, Icon};
+use gdk4::glib::property::PropertyGet;
 use gdk4::glib::{self, clone};
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
-use gtk4::{Application, Picture};
+use gtk4::{Application, IconLookupFlags, IconTheme, Image, Picture};
 use gtk4::CssProvider;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
@@ -94,7 +97,7 @@ pub fn setup(
         }
 
         .picture {
-            
+            margin-top: 4px;
         }
 
         .hbox {
@@ -128,17 +131,16 @@ pub fn setup(
                 sindex = 0;
                 selected_index.store(0, Ordering::SeqCst);
             }
-            for (index, ws) in (&wks).iter().enumerate() {
-                let pixbuf = Pixbuf::from_file(format!("/tmp/{}.png", ws.name)).unwrap();
+            for (index, ws) in (&wks).iter().enumerate() {               
+                // let pic_file = File::for_path(format!("/tmp/{}.png", ws.name));
+                let pic = gtk4::Picture::for_filename(format!("/tmp/{}.png", ws.name));
 
-                pixbuf.scale_simple(300, 200, gdk4::gdk_pixbuf::InterpType::Hyper).unwrap();
-                let picture = Picture::for_pixbuf(&pixbuf);
-                picture.add_css_class("picture");
+                pic.add_css_class("picture");
 
                 let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 3);
                 vbox.set_width_request(300);
                 let label = Label::new(Some(&ws.name));
-                vbox.append(&picture);
+                vbox.append(&pic);
                 vbox.append(&label);
                 vbox.add_css_class("vbox");
 
