@@ -17,6 +17,12 @@ For a quick installation, you can use the following command in the terminal:
 sudo dpkg -i path/to/downloaded/i3-switcher-x11.deb
 ```
 
+After installing, add the following line in the `~/.config/i3/config` file. This will start the i3-switcher-x11 when i3wm starts.
+
+```bash
+exec --no-startup-id i3-switcher-x11
+```
+
 ## License
 
 This project is licensed under the MIT License. For more information, please refer to the LICENSE file included in the repository.
