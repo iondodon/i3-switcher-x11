@@ -13,7 +13,7 @@ pub fn listen_alt_tab(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>
         let screen = xlib::XDefaultScreen(display);
         let root_window = xlib::XRootWindow(display, screen);
 
-        
+            
         const XK_TAB: u64 = x11::keysym::XK_Tab as u64;
         const XK_ALT_L: u64 = x11::keysym::XK_Alt_L as u64; 
         let tab_key = xlib::XKeysymToKeycode(display, XK_TAB) as i32;

@@ -3,6 +3,9 @@ name = "i3-switcher-x11"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs" 
+authors = ["Ion Dodon <iondodon2@gmail.com>"]
+description = "An Alt+Tab workspace switcher for i3wm."
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,3 +14,15 @@ gdk4 = "0.8.0"
 gtk4 = "0.8.0"
 i3ipc = "0.10.1"
 x11 = "2.21.0"
+
+[package.metadata.deb]
+maintainer = "Ion Dodon <iondodon2@gmail.com>"
+license-file = ["LICENSE", "0"]
+extended-description = "An Alt+Tab workspace switcher for i3wm."
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+    ["target/release/i3-switcher-x11", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/cargo-deb/README", "644"],
+]
