@@ -84,15 +84,12 @@ pub fn setup(
 
         .vbox {
             color: #FFFFFF;
-            border-style: solid;
-            border-width: 1px;
-            border-color: #4C7899;
         }
 
         .window {
             background-color: #285577;
             border-style: solid;
-            border-width: 1px;
+            border-width: 2px;
             border-color: #4C7899;
         }
 
