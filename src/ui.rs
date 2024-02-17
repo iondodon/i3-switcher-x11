@@ -78,7 +78,7 @@ pub fn setup(
     // reffer to https://thomashunter.name/i3-configurator/
     provider.load_from_data("
         .selected_frame {
-            background-color: #333333;
+            background-color: #4C7899;
         }
 
         .vbox {
@@ -86,7 +86,7 @@ pub fn setup(
         }
 
         .window {
-            background-color: #285577;
+            background-color: #333333;
             border-style: solid;
             border-width: 2px;
             border-color: #4C7899;
@@ -97,7 +97,7 @@ pub fn setup(
         }
 
         .hbox {
-            background-color: #285577;
+            background-color: #333333;
             margin: 5px;
             padding: 0.3px;
         }
@@ -133,7 +133,7 @@ pub fn setup(
 
                 pic.add_css_class("picture");
 
-                let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 3);
+                let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
                 vbox.set_width_request(300);
                 let label = Label::new(Some(&ws.name));
                 vbox.append(&pic);
