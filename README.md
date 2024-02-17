@@ -2,7 +2,9 @@
 
 The i3wm Alt+Tab Workspace Switcher is a tool designed to bring the familiar Alt+Tab window switching functionality to the i3 window manager environment. It aims to enhance productivity by enabling users to switch between workspaces efficiently and intuitively, mimicking the window switching feature found in traditional desktop environments like Windows.
 
-![Demo](YOUR_GIF_URL_HERE)
+<p align="center">
+  <img src="demo.gif" />
+</p>
 
 
 ## Installation
