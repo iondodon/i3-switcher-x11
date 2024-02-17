@@ -9,7 +9,7 @@ The i3wm Alt+Tab Workspace Switcher is a tool designed to bring the familiar Alt
 
 ## Installation
 
-The i3wm Alt+Tab Workspace Switcher can be easily installed on any Debian-based Linux distribution. Simply download the latest `.deb` package from the [releases section](https://github.com/yourusername/i3-switcher-x11/releases) of our GitHub repository and install it using your package manager.
+The i3wm Alt+Tab Workspace Switcher can be easily installed on any Debian-based Linux distribution. Simply download the latest `.deb` package from the [releases section](https://github.com/iondodon/i3-switcher-x11/releases) of our GitHub repository and install it using your package manager.
 
 For a quick installation, you can use the following command in the terminal:
 
