@@ -1,15 +1,13 @@
+use gdk4::gdk_pixbuf::Pixbuf;
 use gdk4::glib::{self, clone};
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
-use gtk4::Application;
+use gtk4::{Application, Picture};
 use gtk4::CssProvider;
-use gtk4::Frame;
-use gtk4::Image;
+use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
-use x11::xlib;
 use std::process::Command;
-use std::ptr;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
@@ -42,6 +40,7 @@ pub fn setup(
     let window = ApplicationWindow::builder()
         .application(app)
         .title("First GTK Program")
+        .css_classes(vec!["window"])
         .build();
 
     let focused_ws_name: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
@@ -77,14 +76,34 @@ pub fn setup(
     window.add_controller(controller);
 
     let provider = CssProvider::new();
+    // reffer to https://thomashunter.name/i3-configurator/
     provider.load_from_data("
-        frame {
-            background-color: red;
-            border-radius: 0px;
+        .selected_frame {
+            background-color: #333333;
         }
 
-        .selected_frame {
-            background-color: blue;
+        .vbox {
+            color: #FFFFFF;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #4C7899;
+        }
+
+        .window {
+            background-color: #285577;
+            border-style: solid;
+            border-width: 1px;
+            border-color: #4C7899;
+        }
+
+        .picture {
+            
+        }
+
+        .hbox {
+            background-color: #285577;
+            margin: 5px;
+            padding: 0.3px;
         }
     ");
     gtk4::style_context_add_provider_for_display(
@@ -103,6 +122,7 @@ pub fn setup(
         if is_visible_clone.load(Ordering::SeqCst) {
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
             hbox.set_homogeneous(true);
+            hbox.add_css_class("hbox");
 
             let mut i3_conn_lock = i3_conn.write().unwrap();
             let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
@@ -112,43 +132,28 @@ pub fn setup(
                 selected_index.store(0, Ordering::SeqCst);
             }
             for (index, ws) in (&wks).iter().enumerate() {
-                let screenshot = Image::builder()
-                    .file(format!("/tmp/{}.png", ws.name))
-                    .build();
-                let ws_frame = Frame::builder()
-                    .label(ws.name.to_string())
-                    .child(&screenshot)
-                    .build();
-                ws_frame.set_width_request(250);
+                let pixbuf = Pixbuf::from_file(format!("/tmp/{}.png", ws.name)).unwrap();
+
+                pixbuf.scale_simple(300, 200, gdk4::gdk_pixbuf::InterpType::Hyper).unwrap();
+                let picture = Picture::for_pixbuf(&pixbuf);
+                picture.add_css_class("picture");
+
+                let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 3);
+                vbox.set_width_request(300);
+                let label = Label::new(Some(&ws.name));
+                vbox.append(&picture);
+                vbox.append(&label);
+                vbox.add_css_class("vbox");
+
                 if index as i8 == sindex {
-                    ws_frame.add_css_class("selected_frame");
+                    vbox.add_css_class("selected_frame");
                     let mut name = focused_ws_name_clone.write().unwrap();
                     *name = Some(ws.name.clone());
                 }
-                hbox.append(&ws_frame);
+                hbox.append(&vbox);
             }
             
             window.set_child(Some(&hbox));
-
-
-            // move window to center
-            unsafe {
-                let display = xlib::XOpenDisplay(ptr::null());
-                let screen = xlib::XDefaultScreen(display);
-                let screen_width = xlib::XDisplayWidth(display, screen) as i32;
-                let screen_height = xlib::XDisplayHeight(display, screen) as i32;
-
-                let window_width = window.width();
-                let window_height = window.height();
-
-                let x = (screen_width - window_width) / 2;
-                let y = (screen_height - window_height) / 2;
-
-                let command = format!("[title=\"First GTK Program\"] move window to position {} {}", x, y);
-                i3_conn_lock.run_command(&command).unwrap();
-
-                xlib::XCloseDisplay(display);
-            }
 
             window.show();
         } else {
