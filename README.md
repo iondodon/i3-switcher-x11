@@ -17,6 +17,8 @@ For a quick installation, you can use the following command in the terminal:
 sudo dpkg -i path/to/downloaded/i3-switcher-x11.deb
 ```
 
+`scrot` has to be installed. It is used to create screenshots of the workspaces that will be displayed in the switcher.
+
 After installing, add the following two lines in the `~/.config/i3/config` file. 
 The first line will make the i3switcherX1 be a floating window.
 The second line will start the i3switcherx11 when i3wm starts.
