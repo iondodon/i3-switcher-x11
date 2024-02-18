@@ -4,7 +4,6 @@ use gdk4::prelude::ApplicationExtManual;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
 use gtk4::Application;
-use gtk4::CssProvider;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
@@ -18,6 +17,8 @@ use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
 use crate::cmd;
 use crate::i3wm;
+
+mod style;
 
 pub fn init(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>) {
     let application = Application::builder()
@@ -77,39 +78,7 @@ fn setup(
     });
     window.add_controller(controller);
 
-    let provider = CssProvider::new();
-    // reffer to https://thomashunter.name/i3-configurator/
-    provider.load_from_data("
-        .selected_frame {
-            background-color: #4C7899;
-        }
-
-        .vbox {
-            color: #FFFFFF;
-        }
-
-        .window {
-            background-color: #333333;
-            border-style: solid;
-            border-width: 2px;
-            border-color: #4C7899;
-        }
-
-        .picture {
-            margin-top: 4px;
-        }
-
-        .hbox {
-            background-color: #333333;
-            margin: 5px;
-            padding: 0.3px;
-        }
-    ");
-    gtk4::style_context_add_provider_for_display(
-        &gdk4::Display::default().expect("Could not connect to a display."),
-        &provider,
-        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
+    style::init();
     
     window.present();
     window.hide();
