@@ -1,4 +1,6 @@
+use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::{self, clone};
+use gdk4::prelude::ApplicationExtManual;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
 use gtk4::Application;
@@ -6,7 +8,6 @@ use gtk4::CssProvider;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
-use std::process::Command;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
@@ -15,27 +16,29 @@ use std::sync::RwLock;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
+use crate::cmd;
 use crate::i3wm;
 
-fn capture_screenshot(workspace_name: String) {
-    println!("Capturing screenshot of workspace: {}", workspace_name);
-    let filename = format!("/tmp/{}.png", workspace_name);
-    Command::new("rm")
-        .arg(&filename)
-        .output()
-        .expect("Failed to remove screenshot");
-    Command::new("scrot")
-        .arg(&filename)
-        .output()
-        .expect("Failed to capture screenshot");
-    println!("Screenshot saved to {}", filename);
+pub fn init(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>) {
+    let application = Application::builder()
+        .application_id("com.iondodon.i3switcherX11")
+        .build();
+
+    application.connect_activate(move |app| { 
+        setup(app, is_visible.to_owned(), selected_index.to_owned()); 
+    });
+
+    application.run();
 }
 
-pub fn setup(
-    app: &Application, i3_conn: Arc<RwLock<I3Connection>>, 
+fn setup(
+    app: &Application,
     is_visible: Arc<AtomicBool>, 
     selected_index: Arc<AtomicI8>
 ) {
+    let i3_conn = I3Connection::connect().unwrap();
+    let i3_conn = Arc::new(RwLock::new(i3_conn));
+
     let window = ApplicationWindow::builder()
         .application(app)
         .title("First GTK Program")
@@ -53,14 +56,14 @@ pub fn setup(
     controller.connect_key_released(move |_, keyval, _, _| {
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
-                println!("Alt released gtk");
+                log::debug!("Alt_L released [GTK]");
                 window_clone.hide();
                 is_visible_clone.store(false, Ordering::SeqCst);
                 selected_index_clone.store(-1, Ordering::SeqCst);
 
                 let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
-                    capture_screenshot(name);
+                    cmd::capture_screenshot(name);
                 }                         
                 
                 let focused_ws_name = focused_ws_name_clone.read().unwrap();
@@ -114,7 +117,7 @@ pub fn setup(
     let is_visible_clone = is_visible.clone();
     let focused_ws_name_clone = focused_ws_name.clone();
     glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
-        println!("Now is {}", is_visible_clone.load(Ordering::SeqCst));
+        log::debug!("Window visible - {}", is_visible_clone.load(Ordering::SeqCst));
         if is_visible_clone.load(Ordering::SeqCst) {
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
             hbox.set_homogeneous(true);
@@ -127,8 +130,7 @@ pub fn setup(
                 sindex = 0;
                 selected_index.store(0, Ordering::SeqCst);
             }
-            for (index, ws) in (&wks).iter().enumerate() {               
-                // let pic_file = File::for_path(format!("/tmp/{}.png", ws.name));
+            for (index, ws) in (&wks).iter().enumerate() {
                 let pic = gtk4::Picture::for_filename(format!("/tmp/{}.png", ws.name));
 
                 pic.add_css_class("picture");

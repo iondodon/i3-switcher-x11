@@ -7,6 +7,7 @@ pub fn listen_alt_tab(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>
     unsafe {
         let display = xlib::XOpenDisplay(ptr::null());
         if display.is_null() {
+            log::error!("Cannot open display");
             panic!("Cannot open display");
         }
 
@@ -23,14 +24,13 @@ pub fn listen_alt_tab(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>
         // Grab Alt+Tab
         xlib::XGrabKey(display, tab_key, alt_mask, root_window, 1, xlib::GrabModeAsync, xlib::GrabModeAsync);
 
-        // Event loop
         loop {
             let mut event: xlib::XEvent = std::mem::zeroed();
             xlib::XNextEvent(display, &mut event);
 
             match event.get_type() {
                 xlib::KeyPress => {
-                    println!("Alt+Tab Pressed");
+                    log::debug!("Alt+Tab Pressed [X11]");
                     is_visible.store(true, Ordering::SeqCst);
                     let index = selected_index.load(Ordering::SeqCst);
                     selected_index.store(index + 1, Ordering::SeqCst);
@@ -45,11 +45,8 @@ pub fn listen_alt_tab(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>
                         //
                     }
                 }
-                _ => {
-                   
-                }
+                _ => {}
             }
-
         }
 
         // xlib::XCloseDisplay(display); // Never reached in this loop example, showld be called when the app is closed.
