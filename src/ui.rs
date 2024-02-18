@@ -41,7 +41,7 @@ fn setup(
 
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("First GTK Program")
+        .title("i3switcherX11")
         .css_classes(vec!["window"])
         .build();
 

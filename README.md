@@ -17,9 +17,12 @@ For a quick installation, you can use the following command in the terminal:
 sudo dpkg -i path/to/downloaded/i3-switcher-x11.deb
 ```
 
-After installing, add the following line in the `~/.config/i3/config` file. This will start the i3-switcher-x11 when i3wm starts.
+After installing, add the following two lines in the `~/.config/i3/config` file. 
+The first line will make the i3switcherX1 be a floating window.
+The second line will start the i3switcherx11 when i3wm starts.
 
 ```bash
+for_window [title="i3switcherX11"] floating enable
 exec --no-startup-id i3-switcher-x11
 ```
 
