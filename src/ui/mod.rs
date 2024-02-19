@@ -10,7 +10,7 @@ use gtk4::Application;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
-use image::codecs::jpeg::JpegEncoder;
+use image::{imageops, DynamicImage, ImageBuffer, ImageEncoder, RgbaImage};
 use x11::{xlib, xrandr};
 use std::ffi::{CStr, CString};
 use std::fs::File;
@@ -82,34 +82,28 @@ fn screensht(monitor_name: CString, workspace_name: &str) {
                 if !image.is_null() {
                     let width = (*image).width as u32;
                     let height = (*image).height as u32;
-                    let _depth = (*image).depth; // You might need this for color processing
-        
+                    
                     let bitmap_data = slice::from_raw_parts((*image).data as *const u8, (width * height * 4) as usize); // Assuming 32-bit color depth
-        
+                    
                     // Create a new ImgBuf with width: width and height: height
-                    let mut imgbuf = image::ImageBuffer::new(width, height);
-        
-                    // Fill the ImgBuf with your data
-                    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
-                        let index = (y * width + x) as usize * 4; // Assuming 32-bit color depth, change as necessary
-                        *pixel = image::Rgba([bitmap_data[index + 2], bitmap_data[index + 1], bitmap_data[index], 255]); // Convert BGRA to RGBA
-                    }
-
-                    // imgbuf.save(format!("/tmp/{}.png", workspace_name)).unwrap();
-
+                    let imgbuf: RgbaImage = ImageBuffer::from_raw(width, height, bitmap_data.to_vec()).unwrap();
+                    
+                    // Scale down the image for Alt+Tab preview
+                    // Adjust the scale factor to your needs
+                    let scaled_img = imageops::resize(&imgbuf, width / 4, height / 4, imageops::FilterType::Triangle);
+                    
+                    // Convert to DynamicImage to use the save_with_format function
+                    let dynamic_img = DynamicImage::ImageRgba8(scaled_img);
 
                     // Specify the output file
-                    let file = File::create(format!("/tmp/{}.png", workspace_name)).unwrap();
+                    let file = File::create(format!("/tmp/{}.jpg", workspace_name)).unwrap();
                     let ref mut w = BufWriter::new(file);
 
-                    // Specify the quality for the JPEG image
-                    let quality: u8 = 10; // JPEG quality on a 0-100 scale
+                    // Adjust the quality (0-100). Lower quality = smaller file size
+                    let quality: u8 = 75; 
 
-                    // Create a new encoder which will write to `w`
-                    let mut encoder = JpegEncoder::new_with_quality(w, quality);
-
-                    // Encode the image as JPEG and write it to the specified file with the given quality
-                    encoder.encode_image(&imgbuf).unwrap();
+                    // Save the image as JPEG
+                    dynamic_img.write_to(w, image::ImageOutputFormat::Jpeg(quality)).unwrap();
                 }
 
                 xlib::XFree(crtc_info as *mut _);
@@ -197,7 +191,7 @@ fn setup(
                 selected_index.store(0, Ordering::SeqCst);
             }
             for (index, ws) in (&wks).iter().enumerate() {
-                let pic = gtk4::Picture::for_filename(format!("/tmp/{}.png", ws.name));
+                let pic = gtk4::Picture::for_filename(format!("/tmp/{}.jpg", ws.name));
 
                 pic.add_css_class("picture");
 
