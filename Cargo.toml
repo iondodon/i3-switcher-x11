@@ -17,6 +17,7 @@ i3ipc = "0.10.1"
 image = "0.24.8"
 log = "0.4.20"
 x11 = "2.21.0"
+tokio = { version = "1.36.0", features = ["full"] }
 
 [package.metadata.deb]
 maintainer = "Ion Dodon <iondodon2@gmail.com>"

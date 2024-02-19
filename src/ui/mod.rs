@@ -158,13 +158,11 @@ fn setup(
                 let monitor = display.monitor_at_surface(&surface).unwrap();
                 let monitor_name = monitor.model().unwrap();
 
-                println!("{}", monitor_name);
-
                 let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
                     let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
-                    std::thread::spawn(move || { screensht(monitor_name, &name); });
-                }                         
+                    tokio::spawn(async move { screensht(monitor_name, &name); });
+                }
                 
                 let focused_ws_name = focused_ws_name_clone.read().unwrap();
                 if let Some(name) = (*focused_ws_name).clone() {
