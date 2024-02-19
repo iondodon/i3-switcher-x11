@@ -1,12 +1,21 @@
 use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
+use gdk4::prelude::DisplayExt;
+use gdk4::prelude::MonitorExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
+use gtk4::prelude::NativeExt;
 use gtk4::Application;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
+use image::codecs::jpeg::JpegEncoder;
+use x11::{xlib, xrandr};
+use std::ffi::{CStr, CString};
+use std::fs::File;
+use std::io::BufWriter;
+use std::{ptr, slice};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
@@ -15,7 +24,6 @@ use std::sync::RwLock;
 use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
-use crate::cmd;
 use crate::i3wm;
 
 mod style;
@@ -30,6 +38,89 @@ pub fn init(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>) {
     });
 
     application.run();
+}
+
+fn screensht(monitor_name: CString, workspace_name: &str) {
+    unsafe {
+        // Open a connection to the X server
+        let display = xlib::XOpenDisplay(ptr::null());
+        if display.is_null() {
+            eprintln!("Cannot open display");
+            std::process::exit(1);
+        }
+
+        // Get the default screen
+        let screen = xlib::XDefaultScreen(display);
+
+        // Get the XRandR extension version
+        let mut major_version: i32 = 0;
+        let mut minor_version: i32 = 0;
+        xrandr::XRRQueryVersion(display, &mut major_version, &mut minor_version);
+
+        // Get the screen resources
+        let root_window = xlib::XRootWindow(display, screen);
+        let screen_resources = xrandr::XRRGetScreenResources(display, root_window);
+
+        // Find the output matching your monitor's name (e.g., "HDMI1")
+        for i in 0..(*screen_resources).noutput {
+            let output_info = xrandr::XRRGetOutputInfo(display, screen_resources, *(*screen_resources).outputs.add(i as usize));
+            let output_name_cstr = CStr::from_ptr((*output_info).name);
+
+            if CStr::cmp(&monitor_name, &output_name_cstr) == std::cmp::Ordering::Equal {
+                // This is the monitor we're interested in
+                let crtc_info = xrandr::XRRGetCrtcInfo(display, screen_resources, (*output_info).crtc);
+
+                // Now, you can use crtc_info's x, y, width, and height to capture the screen
+                let x = (*crtc_info).x as i32;
+                let y = (*crtc_info).y as i32;
+                let width = (*crtc_info).width as u32;
+                let height = (*crtc_info).height as u32;
+
+
+                // Use XGetImage to capture the screen portion
+                let image = xlib::XGetImage(display, root_window, x, y, width, height, xlib::XAllPlanes(), xlib::ZPixmap);
+                if !image.is_null() {
+                    let width = (*image).width as u32;
+                    let height = (*image).height as u32;
+                    let _depth = (*image).depth; // You might need this for color processing
+        
+                    let bitmap_data = slice::from_raw_parts((*image).data as *const u8, (width * height * 4) as usize); // Assuming 32-bit color depth
+        
+                    // Create a new ImgBuf with width: width and height: height
+                    let mut imgbuf = image::ImageBuffer::new(width, height);
+        
+                    // Fill the ImgBuf with your data
+                    for (x, y, pixel) in imgbuf.enumerate_pixels_mut() {
+                        let index = (y * width + x) as usize * 4; // Assuming 32-bit color depth, change as necessary
+                        *pixel = image::Rgba([bitmap_data[index + 2], bitmap_data[index + 1], bitmap_data[index], 255]); // Convert BGRA to RGBA
+                    }
+
+                    // imgbuf.save(format!("/tmp/{}.png", workspace_name)).unwrap();
+
+
+                    // Specify the output file
+                    let file = File::create(format!("/tmp/{}.png", workspace_name)).unwrap();
+                    let ref mut w = BufWriter::new(file);
+
+                    // Specify the quality for the JPEG image
+                    let quality: u8 = 10; // JPEG quality on a 0-100 scale
+
+                    // Create a new encoder which will write to `w`
+                    let mut encoder = JpegEncoder::new_with_quality(w, quality);
+
+                    // Encode the image as JPEG and write it to the specified file with the given quality
+                    encoder.encode_image(&imgbuf).unwrap();
+                }
+
+                xlib::XFree(crtc_info as *mut _);
+            }
+
+            xlib::XFree(output_info as *mut _);
+        }
+
+        xlib::XFree(screen_resources as *mut _);
+        xlib::XCloseDisplay(display);
+    }
 }
 
 fn setup(
@@ -62,9 +153,17 @@ fn setup(
                 is_visible_clone.store(false, Ordering::SeqCst);
                 selected_index_clone.store(-1, Ordering::SeqCst);
 
+                let surface = window_clone.surface().unwrap();
+                let display = window_clone.display();
+                let monitor = display.monitor_at_surface(&surface).unwrap();
+                let monitor_name = monitor.model().unwrap();
+
+                println!("{}", monitor_name);
+
                 let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
-                    cmd::capture_screenshot(name);
+                    let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
+                    std::thread::spawn(move || { screensht(monitor_name, &name); });
                 }                         
                 
                 let focused_ws_name = focused_ws_name_clone.read().unwrap();
