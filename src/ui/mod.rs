@@ -100,7 +100,7 @@ fn screensht(monitor_name: CString, workspace_name: &str) {
                     let ref mut w = BufWriter::new(file);
 
                     // Adjust the quality (0-100). Lower quality = smaller file size
-                    let quality: u8 = 75; 
+                    let quality: u8 = 50; 
 
                     // Save the image as JPEG
                     dynamic_img.write_to(w, image::ImageOutputFormat::Jpeg(quality)).unwrap();
