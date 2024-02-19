@@ -6,7 +6,6 @@ use x11::listener;
 
 mod ui;
 mod i3wm;
-mod cmd;
 mod x11;
 
 #[tokio::main]

@@ -10,7 +10,7 @@ use gtk4::Application;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
-use image::{imageops, DynamicImage, ImageBuffer, ImageEncoder, RgbaImage};
+use image::{imageops, DynamicImage, ImageBuffer, RgbaImage};
 use x11::{xlib, xrandr};
 use std::ffi::{CStr, CString};
 use std::fs::File;
