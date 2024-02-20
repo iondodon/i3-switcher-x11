@@ -8,8 +8,7 @@ mod ui;
 mod i3wm;
 mod x11;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let is_visible = Arc::new(AtomicBool::new(false));

@@ -49,7 +49,7 @@ fn screenshot(monitor_name: &CString) -> Option<ImageBuffer<Rgba<u8>, Vec<u8>>> 
             return match image {
                 Ok(image) => Some(image),
                 Err(err) => { 
-                    log::error!("Could not make screenshot: {}", err);
+                    log::error!("Could not take screenshot: {}", err);
                     None
                 },
             }
@@ -119,11 +119,9 @@ fn setup(
                 let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
                     let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
-                    tokio::spawn(async move { 
-                        let img = screenshot(&monitor_name);
-                        let mut images = IMAGES.write().unwrap();
-                        images.insert(name, img);
-                    });
+                    let img = screenshot(&monitor_name);
+                    let mut images = IMAGES.write().unwrap();
+                    images.insert(name, img);
                 }
 
                 let focused_ws_name = focused_ws_name_clone.read().unwrap();
