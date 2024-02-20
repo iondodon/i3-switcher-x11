@@ -1,3 +1,4 @@
+use gdk4::gdk_pixbuf::{Colorspace, Pixbuf};
 use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
@@ -6,15 +7,14 @@ use gdk4::prelude::MonitorExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::prelude::BoxExt;
 use gtk4::prelude::NativeExt;
-use gtk4::Application;
+use gtk4::{Application, Picture};
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::I3Connection;
-use image::{imageops, DynamicImage, ImageBuffer, RgbaImage};
+use image::{ImageBuffer, RgbaImage};
 use x11::{xlib, xrandr};
+use std::collections::HashMap;
 use std::ffi::{CStr, CString};
-use std::fs::File;
-use std::io::BufWriter;
 use std::{ptr, slice};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
@@ -25,6 +25,7 @@ use std::time::Duration;
 use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
 use crate::i3wm;
+use lazy_static::lazy_static;
 
 mod style;
 
@@ -40,7 +41,8 @@ pub fn init(is_visible: Arc<AtomicBool>, selected_index: Arc<AtomicI8>) {
     application.run();
 }
 
-fn screensht(monitor_name: CString, workspace_name: &str) {
+fn screenshot(monitor_name: CString) -> Option<RgbaImage> {
+    let mut result: Option<RgbaImage> = None;
     unsafe {
         // Open a connection to the X server
         let display = xlib::XOpenDisplay(ptr::null());
@@ -76,34 +78,19 @@ fn screensht(monitor_name: CString, workspace_name: &str) {
                 let width = (*crtc_info).width as u32;
                 let height = (*crtc_info).height as u32;
 
-
                 // Use XGetImage to capture the screen portion
                 let image = xlib::XGetImage(display, root_window, x, y, width, height, xlib::XAllPlanes(), xlib::ZPixmap);
+                
                 if !image.is_null() {
                     let width = (*image).width as u32;
                     let height = (*image).height as u32;
-                    
+
                     let bitmap_data = slice::from_raw_parts((*image).data as *const u8, (width * height * 4) as usize); // Assuming 32-bit color depth
-                    
+
                     // Create a new ImgBuf with width: width and height: height
                     let imgbuf: RgbaImage = ImageBuffer::from_raw(width, height, bitmap_data.to_vec()).unwrap();
                     
-                    // Scale down the image for Alt+Tab preview
-                    // Adjust the scale factor to your needs
-                    let scaled_img = imageops::resize(&imgbuf, width / 4, height / 4, imageops::FilterType::Triangle);
-                    
-                    // Convert to DynamicImage to use the save_with_format function
-                    let dynamic_img = DynamicImage::ImageRgba8(scaled_img);
-
-                    // Specify the output file
-                    let file = File::create(format!("/tmp/{}.jpg", workspace_name)).unwrap();
-                    let ref mut w = BufWriter::new(file);
-
-                    // Adjust the quality (0-100). Lower quality = smaller file size
-                    let quality: u8 = 50; 
-
-                    // Save the image as JPEG
-                    dynamic_img.write_to(w, image::ImageOutputFormat::Jpeg(quality)).unwrap();
+                    result = Some(imgbuf);
                 }
 
                 xlib::XFree(crtc_info as *mut _);
@@ -114,7 +101,13 @@ fn screensht(monitor_name: CString, workspace_name: &str) {
 
         xlib::XFree(screen_resources as *mut _);
         xlib::XCloseDisplay(display);
+
+        result
     }
+}
+
+lazy_static! {
+    static ref IMAGES: RwLock<HashMap<String, RgbaImage>> = RwLock::new(HashMap::new());
 }
 
 fn setup(
@@ -139,6 +132,7 @@ fn setup(
     let is_visible_clone = is_visible.clone();
     let selected_index_clone = selected_index.clone();
     let focused_ws_name_clone = focused_ws_name.clone();
+    let i3_conn_clone = i3_conn.clone();
     controller.connect_key_released(move |_, keyval, _, _| {
         match keyval.name().unwrap().as_str() {
             "Alt_L" => { 
@@ -155,12 +149,16 @@ fn setup(
                 let mut curr_ws_name = current_ws_name.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
                     let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
-                    tokio::spawn(async move { screensht(monitor_name, &name); });
+                    let img = screenshot(monitor_name);
+                    if let Some(img) = img {
+                        let mut images = IMAGES.write().unwrap();
+                        images.insert(name, img);
+                    }
                 }
-                
+
                 let focused_ws_name = focused_ws_name_clone.read().unwrap();
                 if let Some(name) = (*focused_ws_name).clone() {
-                    i3wm::focus_workspace(name.clone());
+                    i3wm::focus_workspace(name.clone(), i3_conn_clone.clone());
                     *curr_ws_name = Some(name);
                 }
             },
@@ -191,14 +189,17 @@ fn setup(
                 selected_index.store(0, Ordering::SeqCst);
             }
             for (index, ws) in (&wks).iter().enumerate() {
-                let pic = gtk4::Picture::for_filename(format!("/tmp/{}.jpg", ws.name));
-
-                pic.add_css_class("picture");
+                let images = IMAGES.read().unwrap();
+                let pic = images.get(&ws.name);
 
                 let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
                 vbox.set_width_request(300);
                 let label = Label::new(Some(&ws.name));
-                vbox.append(&pic);
+                if let Some(img) = pic {
+                    let pixbuf = rgba_image_to_pixbuf(&img);
+                    let picture = Picture::for_pixbuf(&pixbuf);
+                    vbox.append(&picture);
+                }
                 vbox.append(&label);
                 vbox.add_css_class("vbox");
 
@@ -220,4 +221,23 @@ fn setup(
         }
         glib::ControlFlow::Continue
     }));
+}
+
+
+fn rgba_image_to_pixbuf(img: &RgbaImage) -> Pixbuf {
+    let width = img.width() as i32;
+    let height = img.height() as i32;
+    let row_stride = img.sample_layout().height_stride as i32;
+
+    let pixbuf = Pixbuf::from_mut_slice(
+        img.clone().into_raw(), // Clones the image data into a new Vec<u8>
+        Colorspace::Rgb,
+        true, // has_alpha
+        8,    // bits_per_sample
+        width,
+        height,
+        row_stride,
+    );
+
+    pixbuf
 }
