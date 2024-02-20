@@ -19,6 +19,7 @@ log = "0.4.20"
 x11 = "2.21.0"
 tokio = { version = "1.36.0", features = ["full"] }
 lazy_static = "1.4.0"
+xcap = "0.0.4"
 
 [package.metadata.deb]
 maintainer = "Ion Dodon <iondodon2@gmail.com>"
