@@ -6,6 +6,8 @@ build = "build.rs"
 authors = ["Ion Dodon <iondodon2@gmail.com>"]
 description = "An Alt+Tab workspace switcher for i3wm."
 license = "MIT"
+homepage = "https://github.com/iondodon/i3-switcher-x11"
+repository = "https://github.com/iondodon/i3-switcher-x11"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,3 +33,7 @@ assets = [
     ["target/release/i3-switcher-x11", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/cargo-deb/README", "644"],
 ]
+
+#[package.metadata.aur]
+#depends = ["nachos", "pizza"]
+#optdepends = ["sushi", "ramen"]
