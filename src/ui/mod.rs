@@ -15,6 +15,7 @@ use image::{ImageBuffer, Rgba};
 use xcap::Monitor;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::rc::Rc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI8;
 use std::sync::atomic::Ordering;
@@ -86,7 +87,7 @@ fn setup(
     selected_index: Arc<AtomicI8>
 ) {
     let i3_conn = I3Connection::connect().unwrap();
-    let i3_conn = Arc::new(RwLock::new(i3_conn));
+    let i3_conn = Rc::new(RwLock::new(i3_conn));
 
     let window = ApplicationWindow::builder()
         .application(app)
@@ -94,8 +95,8 @@ fn setup(
         .css_classes(vec!["window"])
         .build();
 
-    let focused_ws_name: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
-    let current_ws_name: Arc<RwLock<Option<String>>> = Arc::new(RwLock::new(None));
+    let focused_ws_name: Rc<RwLock<Option<String>>> = Rc::new(RwLock::new(None));
+    let current_ws_name: Rc<RwLock<Option<String>>> = Rc::new(RwLock::new(None));
 
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
@@ -140,11 +141,9 @@ fn setup(
     window.present();
     window.hide();
 
-    let is_visible_clone = is_visible.clone();
-    let focused_ws_name_clone = focused_ws_name.clone();
     glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
-        log::debug!("Window visible - {}", is_visible_clone.load(Ordering::SeqCst));
-        if is_visible_clone.load(Ordering::SeqCst) {
+        log::debug!("Window visible - {}", is_visible.load(Ordering::SeqCst));
+        if is_visible.load(Ordering::SeqCst) {
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
             hbox.set_homogeneous(true);
             hbox.add_css_class("hbox");
@@ -173,7 +172,7 @@ fn setup(
 
                 if index as i8 == sindex {
                     vbox.add_css_class("selected_frame");
-                    let mut name = focused_ws_name_clone.write().unwrap();
+                    let mut name = focused_ws_name.write().unwrap();
                     *name = Some(ws.name.clone());
                 }
                 hbox.append(&vbox);
