@@ -6,6 +6,7 @@ mod ui;
 mod i3wm;
 mod x11;
 mod state;
+mod screenshot;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();

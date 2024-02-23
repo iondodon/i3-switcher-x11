@@ -1,4 +1,3 @@
-use gdk4::gdk_pixbuf::{Colorspace, Pixbuf};
 use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
@@ -10,8 +9,6 @@ use gtk4::prelude::NativeExt;
 use gtk4::{Application, Picture};
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
-use image::{ImageBuffer, Rgba};
-use xcap::Monitor;
 use std::ffi::CString;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
@@ -19,6 +16,7 @@ use gtk4::prelude::GtkWindowExt;
 use gtk4::glib::ControlFlow;
 use crate::i3wm;
 use crate::state;
+use crate::screenshot;
 
 mod style;
 
@@ -30,42 +28,6 @@ pub fn init() {
     application.connect_activate(move |app| { setup(app); });
 
     application.run();
-}
-
-fn screenshot(monitor_name: &CString) -> Option<ImageBuffer<Rgba<u8>, Vec<u8>>> {
-    let monitors = Monitor::all().unwrap();
-
-    for monitor in monitors {
-        if monitor.name().eq(monitor_name.to_str().unwrap()) {
-            let image = monitor.capture_image();
-            return match image {
-                Ok(image) => Some(image),
-                Err(err) => { 
-                    log::error!("Could not take screenshot: {}", err);
-                    None
-                },
-            }
-        }
-    }
-
-    None
-}
-
-
-fn rgba_image_to_pixbuf(img: &ImageBuffer<Rgba<u8>, Vec<u8>>) -> Pixbuf {
-    let width = img.width() as i32;
-    let height = img.height() as i32;
-    let row_stride = img.sample_layout().height_stride   as i32;
-
-    Pixbuf::from_mut_slice(
-        img.clone().into_raw(),
-        Colorspace::Rgb,
-        true, 
-        8,
-        width,
-        height,
-        row_stride,
-    )
 }
 
 
@@ -94,7 +56,7 @@ fn setup(app: &Application) {
                 let mut curr_ws_name = state::CURRENT_WS_NAME.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
                     let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
-                    let img = screenshot(&monitor_name);
+                    let img = screenshot::take(&monitor_name);
                     let mut images = state::SCREENSHOTS.write().unwrap();
                     images.insert(name, img);
                 }
@@ -137,7 +99,7 @@ fn setup(app: &Application) {
                 vbox.set_width_request(300);
                 let label = Label::new(Some(&ws.name));
                 if let Some(Some(img)) = pic {
-                    let pixbuf = rgba_image_to_pixbuf(img);
+                    let pixbuf = screenshot::rgba_image_to_pixbuf(img);
                     let picture = Picture::for_pixbuf(&pixbuf);
                     vbox.append(&picture);
                 }
