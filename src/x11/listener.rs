@@ -50,6 +50,6 @@ pub fn listen_alt_tab() {
             }
         }
 
-        // xlib::XCloseDisplay(display); // Never reached in this loop example, showld be called when the app is closed.
+        // TODO: xlib::XCloseDisplay(display); // Never reached in this loop example, showld be called when the app is closed.
     }
 }
