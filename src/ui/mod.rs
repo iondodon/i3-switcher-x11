@@ -115,7 +115,7 @@ fn setup(app: &Application) {
     window.present();
     window.hide();
 
-    glib::timeout_add_local(Duration::from_millis(100), clone!(@weak window => @default-return ControlFlow::Continue, move || {
+    glib::timeout_add_local(Duration::from_millis(50), clone!(@weak window => @default-return ControlFlow::Continue, move || {
         log::debug!("Window visible - {}", state::IS_VISIBLE.load(Ordering::SeqCst));
         if state::IS_VISIBLE.load(Ordering::SeqCst) {
             let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);

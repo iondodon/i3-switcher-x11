@@ -5,7 +5,10 @@ use image::{ImageBuffer, Rgba};
 use lazy_static::lazy_static;
 
 lazy_static! {
-    pub static ref I3_CONNECTION: RwLock<I3Connection> = RwLock::new(I3Connection::connect().unwrap());
+    static ref i3_conn: I3Connection = I3Connection::connect().unwrap();
+    
+    
+    pub static ref I3_CONNECTION: RwLock<I3Connection> = RwLock::new(i3_conn);
 
     pub static ref IS_VISIBLE: AtomicBool = AtomicBool::new(false);
     pub static ref SELECTED_INDEX: AtomicI8 = AtomicI8::new(-1);
