@@ -1,24 +1,18 @@
 use std::error::Error;
-use std::sync::atomic::{AtomicBool, AtomicI8};
-use std::sync::Arc;
 use std::thread;
 use x11::listener;
 
 mod ui;
 mod i3wm;
 mod x11;
+mod state;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    let is_visible = Arc::new(AtomicBool::new(false));
-    let selected_index = Arc::new(AtomicI8::new(-1));
+    thread::spawn(|| { listener::listen_alt_tab() });
 
-    let is_visible_clone = is_visible.clone();
-    let selected_index_clone = selected_index.clone();
-    thread::spawn(|| { listener::listen_alt_tab(is_visible_clone, selected_index_clone) });
-
-    ui::init(is_visible, selected_index);
+    ui::init();
 
     Ok(())
 }

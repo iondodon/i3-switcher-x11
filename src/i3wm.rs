@@ -1,9 +1,7 @@
-use std::{rc::Rc, sync::RwLock};
+use crate::state;
 
-use i3ipc::I3Connection;
-
-pub fn focus_workspace(ws_name: String, i3_conn: Rc<RwLock<I3Connection>>) {
-    let mut i3_conn = i3_conn.write().unwrap();
+pub fn focus_workspace(ws_name: String) {
+    let mut i3_conn = state::I3_CONNECTION.write().unwrap();
     let window_id = format!("workspace {}", ws_name);
     i3_conn.run_command(&window_id).unwrap();
 }
