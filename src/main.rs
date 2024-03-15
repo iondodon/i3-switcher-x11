@@ -1,16 +1,18 @@
 use std::error::Error;
 use std::thread;
 
-mod ui;
 mod i3wm;
-mod x11;
-mod state;
 mod screenshot;
+mod state;
+mod ui;
+mod x11;
 
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
-    thread::spawn(|| { x11::listener::listen_alt_tab() });
+    thread::spawn(|| x11::listener::listen_alt_tab());
+
+    thread::spawn(|| i3wm::listen());
 
     ui::init();
 

@@ -21,6 +21,40 @@ use std::time::Duration;
 
 mod style;
 
+struct Tabs {
+    tabs_box: gtk4::Box,
+    tabs_vec: Vec<gtk4::Box>,
+}
+
+impl Tabs {
+    fn new() -> Tabs {
+        Tabs {
+            tabs_box: gtk4::Box::new(gtk4::Orientation::Horizontal, 3),
+            tabs_vec: Vec::<gtk4::Box>::new(),
+        }
+    }
+
+    fn update(self: &Self) {}
+
+    fn add_new_tab(self: &mut Self, name: &String) {
+        let screenshots = state::SCREENSHOTS.read().unwrap();
+        let screenshot = screenshots.get(name);
+
+        let tab_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
+        tab_box.set_width_request(300);
+        let tab_name = Label::new(Some(&name));
+        if let Some(Some(pic)) = screenshot {
+            let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
+            let picture = Picture::for_pixbuf(&pixbuf);
+            tab_box.append(&picture);
+        }
+        tab_box.append(&tab_name);
+        tab_box.add_css_class("tab");
+        self.tabs_vec.push(tab_box);
+        self.tabs_box.append(self.tabs_vec.last().unwrap());
+    }
+}
+
 pub fn init() {
     let application = Application::builder()
         .application_id("com.iondodon.i3switcherX11")
@@ -77,44 +111,18 @@ fn setup(app: &Application) {
 
     style::init();
 
-    let tabs_box = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
-    tabs_box.set_homogeneous(true);
-    tabs_box.add_css_class("tabs");
+    let mut tabs = Tabs::new();
 
-    let mut tabs_vec = Vec::<gtk4::Box>::new();
+    tabs.tabs_box.set_homogeneous(true);
+    tabs.tabs_box.add_css_class("tabs");
 
     let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
     let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
-    let sindex = state::SELECTED_INDEX.load(Ordering::SeqCst);
-
-    for (index, ws) in (&wks).iter().enumerate() {
-        let screenshots = state::SCREENSHOTS.read().unwrap();
-        let screenshot = screenshots.get(&ws.name);
-
-        let tab_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
-        tab_box.set_width_request(300);
-        let tab_name = Label::new(Some(&ws.name));
-        if let Some(Some(pic)) = screenshot {
-            let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
-            let picture = Picture::for_pixbuf(&pixbuf);
-            tab_box.append(&picture);
-        }
-        tab_box.append(&tab_name);
-        tab_box.add_css_class("tab");
-
-        if index as i8 == sindex {
-            tab_box.add_css_class("focused_tab");
-            let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
-            *name = Some(ws.name.clone());
-        }
-        tabs_vec.push(tab_box);
+    for (_, ws) in (&wks).iter().enumerate() {
+        tabs.add_new_tab(&ws.name);
     }
 
-    for tab_box in &tabs_vec {
-        tabs_box.append(tab_box);
-    }
-
-    window.set_child(Some(&tabs_box));
+    window.set_child(Some(&tabs.tabs_box));
     window.present();
     window.hide();
 
@@ -128,11 +136,11 @@ fn setup(app: &Application) {
                     window.show();
                 }
                 if state::SELECTED_INDEX_CHANGED.load(Ordering::SeqCst) {
-                    if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs_vec.len() {
+                    if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs.tabs_vec.len() {
                         state::SELECTED_INDEX.store(0, Ordering::SeqCst);
                     }
                     let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
-                    for (index, tab_box) in tabs_vec.iter().enumerate() {
+                    for (index, tab_box) in tabs.tabs_vec.iter().enumerate() {
                         if tab_box.has_css_class("focused_tab") {
                             tab_box.remove_css_class("focused_tab");
                         }

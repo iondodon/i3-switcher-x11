@@ -7,8 +7,8 @@ use std::{
 };
 
 use i3ipc::I3Connection;
-use image::{ImageBuffer, Rgba};
 use lazy_static::lazy_static;
+use xcap::image::{ImageBuffer, Rgba};
 
 lazy_static! {
     pub static ref I3_CONNECTION: RwLock<I3Connection> =
