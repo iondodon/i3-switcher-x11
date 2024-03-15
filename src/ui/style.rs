@@ -5,7 +5,7 @@ pub fn init() {
     let provider = CssProvider::new();
     provider.load_from_data(
         "
-        .selected_tab {
+        .focused_tab {
             background-color: #4C7899;
         }
 

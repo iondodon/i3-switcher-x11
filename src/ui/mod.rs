@@ -2,6 +2,7 @@ use crate::i3wm;
 use crate::screenshot;
 use crate::state;
 use gdk4::gio::prelude::ApplicationExt;
+use gdk4::glib::object::Cast;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
 use gdk4::prelude::DisplayExt;
@@ -63,7 +64,7 @@ fn setup(app: &Application) {
                     images.insert(name, img);
                 }
 
-                let name = state::FOCUSED_WS_NAME.read().unwrap();
+                let name = state::FOCUSED_TAB_NAME.read().unwrap();
                 if let Some(name) = (*name).clone() {
                     i3wm::focus_workspace(name.clone());
                     *curr_ws_name = Some(name);
@@ -76,56 +77,82 @@ fn setup(app: &Application) {
 
     style::init();
 
+    let tabs_box = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
+    tabs_box.set_homogeneous(true);
+    tabs_box.add_css_class("tabs");
+
+    let mut tabs_vec = Vec::<gtk4::Box>::new();
+
+    let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
+    let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
+    let sindex = state::SELECTED_INDEX.load(Ordering::SeqCst);
+
+    for (index, ws) in (&wks).iter().enumerate() {
+        let screenshots = state::SCREENSHOTS.read().unwrap();
+        let screenshot = screenshots.get(&ws.name);
+
+        let tab_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
+        tab_box.set_width_request(300);
+        let tab_name = Label::new(Some(&ws.name));
+        if let Some(Some(pic)) = screenshot {
+            let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
+            let picture = Picture::for_pixbuf(&pixbuf);
+            tab_box.append(&picture);
+        }
+        tab_box.append(&tab_name);
+        tab_box.add_css_class("tab");
+
+        if index as i8 == sindex {
+            tab_box.add_css_class("focused_tab");
+            let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
+            *name = Some(ws.name.clone());
+        }
+        tabs_vec.push(tab_box);
+    }
+
+    for tab_box in &tabs_vec {
+        tabs_box.append(tab_box);
+    }
+
+    window.set_child(Some(&tabs_box));
     window.present();
     window.hide();
 
     glib::timeout_add_local(
-        Duration::from_millis(10),
+        Duration::from_millis(50),
         clone!(@weak window => @default-return ControlFlow::Continue, move || {
             log::debug!("Window visible - {}", state::IS_VISIBLE.load(Ordering::SeqCst));
+
             if state::IS_VISIBLE.load(Ordering::SeqCst) {
-                let tabs = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
-                tabs.set_homogeneous(true);
-                tabs.add_css_class("tabs");
-
-                let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
-                let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
-                let mut sindex = state::SELECTED_INDEX.load(Ordering::SeqCst);
-                if sindex as usize > wks.len() - 1 {
-                    sindex = 0;
-                    state::SELECTED_INDEX.store(0, Ordering::SeqCst);
+                if !window.is_visible() {
+                    window.show();
                 }
-                for (index, ws) in (&wks).iter().enumerate() {
-                    let screenshots = state::SCREENSHOTS.read().unwrap();
-                    let screenshot = screenshots.get(&ws.name);
-
-                    let tab = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
-                    tab.set_width_request(300);
-                    let tab_name = Label::new(Some(&ws.name));
-                    if let Some(Some(pic)) = screenshot {
-                        let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
-                        let picture = Picture::for_pixbuf(&pixbuf);
-                        tab.append(&picture);
+                if state::SELECTED_INDEX_CHANGED.load(Ordering::SeqCst) {
+                    if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs_vec.len() {
+                        state::SELECTED_INDEX.store(0, Ordering::SeqCst);
                     }
-                    tab.append(&tab_name);
-                    tab.add_css_class("tab");
-
-                    if index as i8 == sindex {
-                        tab.add_css_class("selected_tab");
-                        let mut name = state::FOCUSED_WS_NAME.write().unwrap();
-                        *name = Some(ws.name.clone());
+                    let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
+                    for (index, tab_box) in tabs_vec.iter().enumerate() {
+                        if tab_box.has_css_class("focused_tab") {
+                            tab_box.remove_css_class("focused_tab");
+                        }
+                        if index as i8 == selected_index {
+                            tab_box.add_css_class("focused_tab");
+                            let label = tab_box.last_child().unwrap();
+                            let label = label.downcast_ref::<Label>().unwrap();
+                            let label_text = label.text().to_string();
+                            let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
+                            *name = Some(label_text);
+                        }
                     }
-                    tabs.append(&tab);
+                    state::SELECTED_INDEX_CHANGED.store(false, Ordering::SeqCst);
                 }
-
-                window.set_child(Some(&tabs));
-
-                window.show();
             } else {
                 if window.is_visible() {
                     window.hide();
                 }
             }
+
             glib::ControlFlow::Continue
         }),
     );
