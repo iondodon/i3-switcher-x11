@@ -1,9 +1,6 @@
 use std::sync::mpsc::Sender;
 
-use i3ipc::{
-    event::{inner::WorkspaceChange, Event},
-    I3EventListener, Subscription,
-};
+use i3ipc::{event::Event, I3EventListener, Subscription};
 
 use crate::state;
 

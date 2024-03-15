@@ -46,12 +46,22 @@ impl Tabs {
         let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
         for (_, ws) in (&wks).iter().enumerate() {
             tabs.add_new_tab(&ws.name);
+            tabs.re_render()
         }
 
         tabs
     }
 
-    // fn update(self: &Self) {}
+    fn remove_tab(self: &mut Self, name: &String) {
+        for (index, tab) in self.tabs_vec.iter().enumerate() {
+            let label = tab.last_child().unwrap();
+            let label = label.downcast_ref::<Label>().unwrap();
+            if label.text().eq(name) {
+                self.tabs_vec.remove(index);
+                return;
+            }
+        }
+    }
 
     fn add_new_tab(self: &mut Self, name: &String) {
         let screenshots = state::SCREENSHOTS.read().unwrap();
@@ -67,8 +77,21 @@ impl Tabs {
         }
         tab_box.append(&tab_name);
         tab_box.add_css_class("tab");
+
         self.tabs_vec.push(tab_box);
-        self.tabs_box.append(self.tabs_vec.last().unwrap());
+    }
+
+    fn re_render(self: &mut Self) {
+        loop {
+            match self.tabs_box.first_child() {
+                Some(tab) => self.tabs_box.remove(&tab),
+                None => break,
+            }
+        }
+
+        for tab in &self.tabs_vec {
+            self.tabs_box.append(tab);
+        }
     }
 }
 
@@ -154,8 +177,14 @@ fn setup(app: &Application) {
                                 log::debug!("New workspace {:?}", info);
                                 let mut tabs = tabs.write().unwrap();
                                 tabs.add_new_tab(&info.current.unwrap().name.unwrap());
+                                tabs.re_render();
                             },
-                            WorkspaceChange::Empty => log::debug!("Removed workspace {:?}", info),
+                            WorkspaceChange::Empty => {
+                                log::debug!("Removed workspace {:?}", info);
+                                let mut tabs = tabs.write().unwrap();
+                                tabs.remove_tab(&info.current.unwrap().name.unwrap());
+                                tabs.re_render();
+                            },
                             _ => (),
                         },
                         _ => ()
