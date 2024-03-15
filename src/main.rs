@@ -12,8 +12,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     thread::spawn(|| x11::listener::listen_alt_tab());
 
-    thread::spawn(|| i3wm::listen());
-
     ui::init();
 
     Ok(())

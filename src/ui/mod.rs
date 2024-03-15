@@ -15,8 +15,14 @@ use gtk4::prelude::WidgetExt;
 use gtk4::Label;
 use gtk4::{Application, Picture};
 use gtk4::{ApplicationWindow, EventControllerKey};
+use i3ipc::event::inner::WorkspaceChange;
+use i3ipc::event::Event;
 use std::ffi::CString;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::thread;
 use std::time::Duration;
 
 mod style;
@@ -122,11 +128,45 @@ fn setup(app: &Application) {
 
     style::init();
 
-    let tabs = Tabs::new();
+    let tabs = Arc::new(RwLock::new(Tabs::new()));
 
-    window.set_child(Some(&tabs.tabs_box));
+    {
+        let tabs = tabs.read().unwrap();
+        window.set_child(Some(&tabs.tabs_box));
+    }
+
     window.present();
     window.hide();
+
+    let (tx, rx): (mpsc::Sender<Event>, mpsc::Receiver<Event>) = mpsc::channel();
+
+    thread::spawn(|| i3wm::listen(tx));
+
+    glib::timeout_add_local(
+        Duration::from_millis(50),
+        clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
+
+            match rx.try_recv() {
+                Ok(event) => {
+                    match event {
+                        i3ipc::event::Event::WorkspaceEvent(info) => match info.change {
+                            WorkspaceChange::Init => {
+                                log::debug!("New workspace {:?}", info);
+                                let mut tabs = tabs.write().unwrap();
+                                tabs.add_new_tab(&info.current.unwrap().name.unwrap());
+                            },
+                            WorkspaceChange::Empty => log::debug!("Removed workspace {:?}", info),
+                            _ => (),
+                        },
+                        _ => ()
+                    }
+                },
+                Err(_) => (),
+            }
+
+            glib::ControlFlow::Continue
+        }),
+    );
 
     glib::timeout_add_local(
         Duration::from_millis(50),
@@ -138,6 +178,7 @@ fn setup(app: &Application) {
                     window.show();
                 }
                 if state::SELECTED_INDEX_CHANGED.load(Ordering::SeqCst) {
+                    let tabs = tabs.read().unwrap();
                     if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs.tabs_vec.len() {
                         state::SELECTED_INDEX.store(0, Ordering::SeqCst);
                     }
