@@ -28,13 +28,24 @@ struct Tabs {
 
 impl Tabs {
     fn new() -> Tabs {
-        Tabs {
+        let mut tabs = Tabs {
             tabs_box: gtk4::Box::new(gtk4::Orientation::Horizontal, 3),
             tabs_vec: Vec::<gtk4::Box>::new(),
+        };
+
+        tabs.tabs_box.set_homogeneous(true);
+        tabs.tabs_box.add_css_class("tabs");
+
+        let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
+        let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
+        for (_, ws) in (&wks).iter().enumerate() {
+            tabs.add_new_tab(&ws.name);
         }
+
+        tabs
     }
 
-    fn update(self: &Self) {}
+    // fn update(self: &Self) {}
 
     fn add_new_tab(self: &mut Self, name: &String) {
         let screenshots = state::SCREENSHOTS.read().unwrap();
@@ -111,16 +122,7 @@ fn setup(app: &Application) {
 
     style::init();
 
-    let mut tabs = Tabs::new();
-
-    tabs.tabs_box.set_homogeneous(true);
-    tabs.tabs_box.add_css_class("tabs");
-
-    let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
-    let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
-    for (_, ws) in (&wks).iter().enumerate() {
-        tabs.add_new_tab(&ws.name);
-    }
+    let tabs = Tabs::new();
 
     window.set_child(Some(&tabs.tabs_box));
     window.present();
