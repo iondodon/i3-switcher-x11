@@ -1,6 +1,7 @@
 use crate::i3wm;
 use crate::screenshot;
 use crate::state;
+use gdk4::gdk_pixbuf;
 use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::object::Cast;
 use gdk4::glib::{self, clone};
@@ -24,19 +25,48 @@ use std::sync::Arc;
 use std::sync::RwLock;
 use std::thread;
 use std::time::Duration;
+use xcap::image::ImageBuffer;
+use xcap::image::Rgba;
 
 mod style;
 
-struct Tabs {
-    tabs_box: gtk4::Box,
-    tabs_vec: Vec<gtk4::Box>,
+struct Tab {
+    picture: Option<Picture>,
+    label: Label,
+    gtk_box: gtk4::Box,
 }
 
-impl Tabs {
-    fn new() -> Tabs {
-        let mut tabs = Tabs {
+impl Tab {
+    fn new(picture: Option<Picture>, name: Option<&str>) -> Self {
+        let gtk_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
+        gtk_box.set_width_request(300);
+        gtk_box.add_css_class("tab");
+
+        if let Some(ref pic) = picture {
+            gtk_box.append(pic);
+        }
+
+        let label = Label::new(name);
+        gtk_box.append(&label);
+
+        Tab {
+            picture: picture,
+            label: Label::new(name),
+            gtk_box: gtk_box,
+        }
+    }
+}
+
+struct TabsList {
+    tabs_box: gtk4::Box,
+    tabs_vec: Vec<Tab>,
+}
+
+impl TabsList {
+    fn new() -> TabsList {
+        let mut tabs = TabsList {
             tabs_box: gtk4::Box::new(gtk4::Orientation::Horizontal, 3),
-            tabs_vec: Vec::<gtk4::Box>::new(),
+            tabs_vec: Vec::<Tab>::new(),
         };
 
         tabs.tabs_box.set_homogeneous(true);
@@ -46,17 +76,16 @@ impl Tabs {
         let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
         for (_, ws) in (&wks).iter().enumerate() {
             tabs.add_new_tab(&ws.name);
-            tabs.re_render()
         }
+
+        tabs.re_render();
 
         tabs
     }
 
     fn remove_tab(self: &mut Self, name: &String) {
         for (index, tab) in self.tabs_vec.iter().enumerate() {
-            let label = tab.last_child().unwrap();
-            let label = label.downcast_ref::<Label>().unwrap();
-            if label.text().eq(name) {
+            if tab.label.text().eq(name) {
                 self.tabs_vec.remove(index);
                 return;
             }
@@ -67,18 +96,15 @@ impl Tabs {
         let screenshots = state::SCREENSHOTS.read().unwrap();
         let screenshot = screenshots.get(name);
 
-        let tab_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
-        tab_box.set_width_request(300);
-        let tab_name = Label::new(Some(&name));
         if let Some(Some(pic)) = screenshot {
             let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
             let picture = Picture::for_pixbuf(&pixbuf);
-            tab_box.append(&picture);
+            let tab = Tab::new(Some(picture), Some(name));
+            self.tabs_vec.push(tab);
+        } else {
+            let tab = Tab::new(None, Some(name));
+            self.tabs_vec.push(tab);
         }
-        tab_box.append(&tab_name);
-        tab_box.add_css_class("tab");
-
-        self.tabs_vec.push(tab_box);
     }
 
     fn re_render(self: &mut Self) {
@@ -90,7 +116,27 @@ impl Tabs {
         }
 
         for tab in &self.tabs_vec {
-            self.tabs_box.append(tab);
+            self.tabs_box.append(&tab.gtk_box);
+        }
+    }
+
+    fn set_image(self: &mut Self, name: String, img: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>) {
+        let mut i: Option<usize> = None;
+        if let Some(pic) = img {
+            for (index, tab) in self.tabs_vec.iter().enumerate() {
+                if tab.label.text().eq(&name) {
+                    i = Some(index);
+                    break;
+                }
+            }
+
+            if let Some(i) = i {
+                let pixbuf = screenshot::rgba_image_to_pixbuf(&pic);
+                let picture = Picture::for_pixbuf(&pixbuf);
+                self.tabs_vec[i] = Tab::new(Some(picture), Some(&name));
+            }
+
+            self.re_render();
         }
     }
 }
@@ -114,8 +160,11 @@ fn setup(app: &Application) {
         .css_classes(vec!["window"])
         .build();
 
+    let tabs = Arc::new(RwLock::new(TabsList::new()));
+
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
+    let tabs_clone = tabs.clone();
     controller.connect_key_released(
         move |_, keyval, _, _| match keyval.name().unwrap().as_str() {
             "Alt_L" => {
@@ -134,8 +183,8 @@ fn setup(app: &Application) {
                     let monitor_name =
                         CString::new(monitor_name.as_bytes()).expect("CString::new failed");
                     let img = screenshot::take(&monitor_name);
-                    let mut images = state::SCREENSHOTS.write().unwrap();
-                    images.insert(name, img);
+                    let mut tabs = tabs_clone.write().unwrap();
+                    tabs.set_image(name, img);
                 }
 
                 let name = state::FOCUSED_TAB_NAME.read().unwrap();
@@ -150,8 +199,6 @@ fn setup(app: &Application) {
     window.add_controller(controller);
 
     style::init();
-
-    let tabs = Arc::new(RwLock::new(Tabs::new()));
 
     {
         let tabs = tabs.read().unwrap();
@@ -212,13 +259,13 @@ fn setup(app: &Application) {
                         state::SELECTED_INDEX.store(0, Ordering::SeqCst);
                     }
                     let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
-                    for (index, tab_box) in tabs.tabs_vec.iter().enumerate() {
-                        if tab_box.has_css_class("focused_tab") {
-                            tab_box.remove_css_class("focused_tab");
+                    for (index, tab) in tabs.tabs_vec.iter().enumerate() {
+                        if tab.gtk_box.has_css_class("focused_tab") {
+                            tab.gtk_box.remove_css_class("focused_tab");
                         }
                         if index as i8 == selected_index {
-                            tab_box.add_css_class("focused_tab");
-                            let label = tab_box.last_child().unwrap();
+                            tab.gtk_box.add_css_class("focused_tab");
+                            let label = tab.gtk_box.last_child().unwrap();
                             let label = label.downcast_ref::<Label>().unwrap();
                             let label_text = label.text().to_string();
                             let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
