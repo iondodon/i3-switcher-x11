@@ -1,35 +1,43 @@
+use crate::i3wm;
+use crate::screenshot;
+use crate::state;
 use gdk4::gio::prelude::ApplicationExt;
+use gdk4::glib::object::Cast;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
 use gdk4::prelude::DisplayExt;
 use gdk4::prelude::MonitorExt;
-use gtk4::prelude::WidgetExt;
-use gtk4::prelude::BoxExt;
+use gtk4::glib::ControlFlow;
+use gtk4::prelude::GtkWindowExt;
 use gtk4::prelude::NativeExt;
-use gtk4::{Application, Picture};
+use gtk4::prelude::WidgetExt;
+use gtk4::Application;
 use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
+use i3ipc::event::inner::WorkspaceChange;
+use i3ipc::event::Event;
 use std::ffi::CString;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::RwLock;
+use std::thread;
 use std::time::Duration;
-use gtk4::prelude::GtkWindowExt;
-use gtk4::glib::ControlFlow;
-use crate::i3wm;
-use crate::state;
-use crate::screenshot;
 
 mod style;
+mod tabs;
 
 pub fn init() {
     let application = Application::builder()
         .application_id("com.iondodon.i3switcherX11")
         .build();
 
-    application.connect_activate(move |app| { setup(app); });
+    application.connect_activate(move |app| {
+        setup(app);
+    });
 
     application.run();
 }
-
 
 fn setup(app: &Application) {
     let window = ApplicationWindow::builder()
@@ -38,11 +46,14 @@ fn setup(app: &Application) {
         .css_classes(vec!["window"])
         .build();
 
+    let tabs = Arc::new(RwLock::new(tabs::TabsList::new()));
+
     let controller = EventControllerKey::new();
     let window_clone = window.clone();
-    controller.connect_key_released(move |_, keyval, _, _| {
-        match keyval.name().unwrap().as_str() {
-            "Alt_L" => { 
+    let tabs_clone = tabs.clone();
+    controller.connect_key_released(
+        move |_, keyval, _, _| match keyval.name().unwrap().as_str() {
+            "Alt_L" => {
                 log::debug!("Alt_L released [GTK]");
                 window_clone.hide();
                 state::IS_VISIBLE.store(false, Ordering::SeqCst);
@@ -55,73 +66,107 @@ fn setup(app: &Application) {
 
                 let mut curr_ws_name = state::CURRENT_WS_NAME.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
-                    let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
+                    let monitor_name =
+                        CString::new(monitor_name.as_bytes()).expect("CString::new failed");
                     let img = screenshot::take(&monitor_name);
-                    let mut images = state::SCREENSHOTS.write().unwrap();
-                    images.insert(name, img);
+                    let mut tabs = tabs_clone.write().unwrap();
+                    tabs.set_image(name, img);
                 }
 
-                let name = state::FOCUSED_WS_NAME.read().unwrap();
+                let name = state::FOCUSED_TAB_NAME.read().unwrap();
                 if let Some(name) = (*name).clone() {
                     i3wm::focus_workspace(name.clone());
                     *curr_ws_name = Some(name);
                 }
-            },
+            }
             _ => {}
-        }
-    });
+        },
+    );
     window.add_controller(controller);
 
     style::init();
-    
+
+    {
+        let tabs = tabs.read().unwrap();
+        window.set_child(Some(&tabs.tabs_box));
+    }
+
     window.present();
     window.hide();
 
-    glib::timeout_add_local(Duration::from_millis(100   ), clone!(@weak window => @default-return ControlFlow::Continue, move || {
-        log::debug!("Window visible - {}", state::IS_VISIBLE.load(Ordering::SeqCst));
-        if state::IS_VISIBLE.load(Ordering::SeqCst) {
-            let hbox = gtk4::Box::new(gtk4::Orientation::Horizontal, 3);
-            hbox.set_homogeneous(true);
-            hbox.add_css_class("hbox");
+    let (tx, rx): (mpsc::Sender<Event>, mpsc::Receiver<Event>) = mpsc::channel();
 
-            let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
-            let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
-            let mut sindex = state::SELECTED_INDEX.load(Ordering::SeqCst);
-            if sindex as usize > wks.len() - 1 {
-                sindex = 0;
-                state::SELECTED_INDEX.store(0, Ordering::SeqCst);
+    thread::spawn(|| i3wm::listen(tx));
+
+    glib::timeout_add_local(
+        Duration::from_millis(50),
+        clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
+
+            match rx.try_recv() {
+                Ok(event) => {
+                    match event {
+                        i3ipc::event::Event::WorkspaceEvent(info) => match info.change {
+                            WorkspaceChange::Init => {
+                                log::debug!("New workspace {:?}", info);
+                                let mut tabs = tabs.write().unwrap();
+                                tabs.add_new_tab(None, &info.current.unwrap().name.unwrap());
+                                tabs.re_render();
+                            },
+                            WorkspaceChange::Empty => {
+                                log::debug!("Removed workspace {:?}", info);
+                                let mut tabs = tabs.write().unwrap();
+                                tabs.remove_tab(&info.current.unwrap().name.unwrap());
+                                tabs.re_render();
+                            },
+                            _ => (),
+                        },
+                        _ => ()
+                    }
+                },
+                Err(_) => (),
             }
-            for (index, ws) in (&wks).iter().enumerate() {
-                let images = state::SCREENSHOTS.read().unwrap();
-                let pic = images.get(&ws.name);
 
-                let vbox = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
-                vbox.set_width_request(300);
-                let label = Label::new(Some(&ws.name));
-                if let Some(Some(img)) = pic {
-                    let pixbuf = screenshot::rgba_image_to_pixbuf(img);
-                    let picture = Picture::for_pixbuf(&pixbuf);
-                    vbox.append(&picture);
+            glib::ControlFlow::Continue
+        }),
+    );
+
+    glib::timeout_add_local(
+        Duration::from_millis(50),
+        clone!(@weak window => @default-return ControlFlow::Continue, move || {
+            log::debug!("Window visible - {}", state::IS_VISIBLE.load(Ordering::SeqCst));
+
+            if state::IS_VISIBLE.load(Ordering::SeqCst) {
+                if !window.is_visible() {
+                    window.show();
                 }
-                vbox.append(&label);
-                vbox.add_css_class("vbox");
-
-                if index as i8 == sindex {
-                    vbox.add_css_class("selected_frame");
-                    let mut name = state::FOCUSED_WS_NAME.write().unwrap();
-                    *name = Some(ws.name.clone());
+                if state::SELECTED_INDEX_CHANGED.load(Ordering::SeqCst) {
+                    let tabs = tabs.read().unwrap();
+                    if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs.tabs_vec.len() {
+                        state::SELECTED_INDEX.store(0, Ordering::SeqCst);
+                    }
+                    let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
+                    for (index, tab) in tabs.tabs_vec.iter().enumerate() {
+                        if tab.gtk_box.has_css_class("focused_tab") {
+                            tab.gtk_box.remove_css_class("focused_tab");
+                        }
+                        if index as i8 == selected_index {
+                            tab.gtk_box.add_css_class("focused_tab");
+                            let label = tab.gtk_box.last_child().unwrap();
+                            let label = label.downcast_ref::<Label>().unwrap();
+                            let label_text = label.text().to_string();
+                            let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
+                            *name = Some(label_text);
+                        }
+                    }
+                    state::SELECTED_INDEX_CHANGED.store(false, Ordering::SeqCst);
                 }
-                hbox.append(&vbox);
+            } else {
+                if window.is_visible() {
+                    window.hide();
+                }
             }
-            
-            window.set_child(Some(&hbox));
 
-            window.show();
-        } else {
-            if window.is_visible() {
-                window.hide();
-            }
-        }
-        glib::ControlFlow::Continue
-    }));
+            glib::ControlFlow::Continue
+        }),
+    );
 }

@@ -1,8 +1,8 @@
 [package]
 name = "i3-switcher-x11"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
-build = "build.rs" 
+build = "build.rs"
 authors = ["Ion Dodon <iondodon2@gmail.com>"]
 description = "An Alt+Tab workspace switcher for i3wm."
 license = "MIT"
@@ -15,12 +15,14 @@ repository = "https://github.com/iondodon/i3-switcher-x11"
 env_logger = "0.11.2"
 gdk4 = "0.8.0"
 gtk4 = "0.8.0"
-i3ipc = "0.10.1"
-image = "0.24.8"
 log = "0.4.20"
 x11 = "2.21.0"
 lazy_static = "1.4.0"
 xcap = "0.0.4"
+
+[dependencies.i3ipc]
+version = "0.10.1"
+features = ["i3-4-14"]
 
 [package.metadata.deb]
 maintainer = "Ion Dodon <iondodon2@gmail.com>"
@@ -30,8 +32,16 @@ depends = "$auto"
 section = "utility"
 priority = "optional"
 assets = [
-    ["target/release/i3-switcher-x11", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/cargo-deb/README", "644"],
+    [
+        "target/release/i3-switcher-x11",
+        "usr/bin/",
+        "755",
+    ],
+    [
+        "README.md",
+        "usr/share/doc/cargo-deb/README",
+        "644",
+    ],
 ]
 
 #[package.metadata.aur]
