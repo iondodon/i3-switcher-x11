@@ -16,7 +16,6 @@ pub struct Tab {
 impl Tab {
     pub fn new(picture: Option<Picture>, name: Option<&str>) -> Self {
         let gtk_box = gtk4::Box::new(gtk4::Orientation::Vertical, 1);
-        gtk_box.set_width_request(300);
         gtk_box.add_css_class("tab");
 
         if let Some(ref pic) = picture {

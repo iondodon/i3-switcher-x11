@@ -11,6 +11,12 @@ pub fn init() {
 
         .tab {
             color: #FFFFFF;
+
+            min-height: 200px;
+            max-height: 200px;
+
+            min-width: 300px;
+            max-width: 300px;
         }
 
         .window {
