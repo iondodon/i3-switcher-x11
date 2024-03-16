@@ -1,7 +1,6 @@
 use crate::i3wm;
 use crate::screenshot;
 use crate::state;
-use gdk4::gdk_pixbuf;
 use gdk4::gio::prelude::ApplicationExt;
 use gdk4::glib::object::Cast;
 use gdk4::glib::{self, clone};
@@ -31,7 +30,6 @@ use xcap::image::Rgba;
 mod style;
 
 struct Tab {
-    picture: Option<Picture>,
     label: Label,
     gtk_box: gtk4::Box,
 }
@@ -50,7 +48,6 @@ impl Tab {
         gtk_box.append(&label);
 
         Tab {
-            picture: picture,
             label: Label::new(name),
             gtk_box: gtk_box,
         }
@@ -75,7 +72,7 @@ impl TabsList {
         let mut i3_conn_lock = state::I3_CONNECTION.write().unwrap();
         let wks = i3_conn_lock.get_workspaces().unwrap().workspaces;
         for (_, ws) in (&wks).iter().enumerate() {
-            tabs.add_new_tab(&ws.name);
+            tabs.add_new_tab(None, &ws.name);
         }
 
         tabs.re_render();
@@ -92,19 +89,9 @@ impl TabsList {
         }
     }
 
-    fn add_new_tab(self: &mut Self, name: &String) {
-        let screenshots = state::SCREENSHOTS.read().unwrap();
-        let screenshot = screenshots.get(name);
-
-        if let Some(Some(pic)) = screenshot {
-            let pixbuf = screenshot::rgba_image_to_pixbuf(pic);
-            let picture = Picture::for_pixbuf(&pixbuf);
-            let tab = Tab::new(Some(picture), Some(name));
-            self.tabs_vec.push(tab);
-        } else {
-            let tab = Tab::new(None, Some(name));
-            self.tabs_vec.push(tab);
-        }
+    fn add_new_tab(self: &mut Self, picture: Option<Picture>, name: &String) {
+        let tab = Tab::new(picture, Some(name));
+        self.tabs_vec.push(tab);
     }
 
     fn re_render(self: &mut Self) {
@@ -223,7 +210,7 @@ fn setup(app: &Application) {
                             WorkspaceChange::Init => {
                                 log::debug!("New workspace {:?}", info);
                                 let mut tabs = tabs.write().unwrap();
-                                tabs.add_new_tab(&info.current.unwrap().name.unwrap());
+                                tabs.add_new_tab(None, &info.current.unwrap().name.unwrap());
                                 tabs.re_render();
                             },
                             WorkspaceChange::Empty => {
