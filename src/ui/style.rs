@@ -13,10 +13,7 @@ pub fn init() {
             color: #FFFFFF;
 
             min-height: 200px;
-            max-height: 200px;
-
-            min-width: 300px;
-            max-width: 300px;
+            min-width: 320px;
         }
 
         .window {
@@ -27,7 +24,7 @@ pub fn init() {
         }
 
         .picture {
-            margin-top: 4px;
+          
         }
 
         .tabs {

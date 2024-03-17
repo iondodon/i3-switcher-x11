@@ -18,7 +18,7 @@ gtk4 = "0.8.0"
 log = "0.4.20"
 x11 = "2.21.0"
 lazy_static = "1.4.0"
-xcap = "0.0.4"
+xcap = "0.0.5"
 
 [dependencies.i3ipc]
 version = "0.10.1"

@@ -2,7 +2,6 @@ use crate::i3wm;
 use crate::screenshot;
 use crate::state;
 use gdk4::gio::prelude::ApplicationExt;
-use gdk4::glib::object::Cast;
 use gdk4::glib::{self, clone};
 use gdk4::prelude::ApplicationExtManual;
 use gdk4::prelude::DisplayExt;
@@ -12,7 +11,6 @@ use gtk4::prelude::GtkWindowExt;
 use gtk4::prelude::NativeExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::Application;
-use gtk4::Label;
 use gtk4::{ApplicationWindow, EventControllerKey};
 use i3ipc::event::inner::WorkspaceChange;
 use i3ipc::event::Event;
@@ -46,6 +44,8 @@ fn setup(app: &Application) {
         .css_classes(vec!["window"])
         .build();
 
+    // add the lock inside TabsList and Tab structs
+    // use smaller lock scopes
     let tabs = Arc::new(RwLock::new(tabs::TabsList::new()));
 
     let controller = EventControllerKey::new();
@@ -94,15 +94,16 @@ fn setup(app: &Application) {
     window.present();
     window.hide();
 
-    let (tx, rx): (mpsc::Sender<Event>, mpsc::Receiver<Event>) = mpsc::channel();
+    let (i3_event_sender, i3_event_receiver): (mpsc::Sender<Event>, mpsc::Receiver<Event>) =
+        mpsc::channel();
 
-    thread::spawn(|| i3wm::listen(tx));
+    thread::spawn(|| i3wm::listen(i3_event_sender));
 
     glib::timeout_add_local(
         Duration::from_millis(50),
         clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
 
-            match rx.try_recv() {
+            match i3_event_receiver.try_recv() {
                 Ok(event) => {
                     match event {
                         i3ipc::event::Event::WorkspaceEvent(info) => match info.change {
@@ -151,8 +152,7 @@ fn setup(app: &Application) {
                         }
                         if index as i8 == selected_index {
                             tab.gtk_box.add_css_class("focused_tab");
-                            let label = tab.gtk_box.last_child().unwrap();
-                            let label = label.downcast_ref::<Label>().unwrap();
+                            let label = &tab.label;
                             let label_text = label.text().to_string();
                             let mut name = state::FOCUSED_TAB_NAME.write().unwrap();
                             *name = Some(label_text);
