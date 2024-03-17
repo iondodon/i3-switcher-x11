@@ -57,6 +57,12 @@ fn setup(app: &Application) {
                 log::debug!("Alt_L released [GTK]");
                 window_clone.hide();
                 state::IS_VISIBLE.store(false, Ordering::SeqCst);
+
+                {
+                    let mut tabs = tabs_clone.write().unwrap();
+                    tabs.reorder_prev_first();
+                }
+
                 state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
 
                 let surface = window_clone.surface().unwrap();

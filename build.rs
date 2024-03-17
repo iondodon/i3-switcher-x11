@@ -3,9 +3,17 @@ fn main() {
     println!("cargo:rustc-link-lib=Xrandr");
 }
 
-// needed: 
+// needed:
 // libgtk-4-dev for gtk
 // libappindicator3-1, libappindicator3-dev, libayatana-appindicator3-dev for systray-dev
-// llvm clang libclang-dev  
+// llvm clang libclang-dev
 // libx11-dev
 // libxcb-randr0-dev, libxrandr-dev for screenshots
+
+// libraries
+// libayatana-appindicator3-1
+// llvm
+// clang
+// libx11-6
+// libxcb-randr0
+// libxrandr2

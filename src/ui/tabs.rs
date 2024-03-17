@@ -7,6 +7,7 @@ use xcap::image::Rgba;
 
 use crate::screenshot;
 use crate::state;
+use crate::state::CURRENT_WS_NAME;
 
 pub struct Tab {
     pub label: Label,
@@ -102,6 +103,23 @@ impl TabsList {
             }
 
             self.re_render();
+        }
+    }
+
+    pub fn reorder_prev_first(self: &mut Self) {
+        if self.tabs_vec.len() < 2 {
+            return;
+        }
+
+        if let Some(ref name) = *CURRENT_WS_NAME.read().unwrap() {
+            for (index, tab) in self.tabs_vec.iter().enumerate() {
+                if tab.label.text().eq(name) {
+                    let tab = self.tabs_vec.remove(index as usize);
+                    self.tabs_vec.insert(0, tab);
+                    self.re_render();
+                    return;
+                }
+            }
         }
     }
 }
