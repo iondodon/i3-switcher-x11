@@ -1,6 +1,6 @@
 [package]
 name = "i3-switcher-x11"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 build = "build.rs"
 authors = ["Ion Dodon <iondodon2@gmail.com>"]
@@ -19,6 +19,7 @@ log = "0.4.20"
 x11 = "2.21.0"
 lazy_static = "1.4.0"
 xcap = "0.0.5"
+dirs = "5.0.1"
 
 [dependencies.i3ipc]
 version = "0.10.1"
