@@ -38,6 +38,10 @@ const DEFAULT_CSS: &str = "
     margin: 1em;
 }
 
+.label {
+    
+}
+
 ";
 
 pub fn init() {

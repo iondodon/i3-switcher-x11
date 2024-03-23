@@ -24,6 +24,7 @@ impl Tab {
         }
 
         let label = Label::new(name);
+        label.add_css_class("label");
         gtk_box.append(&label);
 
         Tab {
