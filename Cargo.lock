@@ -833,7 +833,7 @@ checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
 
 [[package]]
 name = "i3-switcher-x11"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "dirs",
  "env_logger",
@@ -2055,9 +2055,9 @@ dependencies = [
 
 [[package]]
 name = "xcap"
-version = "0.0.5"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "696a57ff11f3b9553881d5d5dc69424e376e87e01cd389ce14e1d0e34cbaa53c"
+checksum = "67a93952e626469db74885009cb4a3b9df9a281a03b2f16e3c3a3f0b5d0a408a"
 dependencies = [
  "core-foundation",
  "core-graphics",

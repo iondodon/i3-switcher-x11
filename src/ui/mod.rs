@@ -11,7 +11,7 @@ use gtk4::prelude::GtkWindowExt;
 use gtk4::prelude::NativeExt;
 use gtk4::prelude::WidgetExt;
 use gtk4::Application;
-use gtk4::{ApplicationWindow, EventControllerKey};
+use gtk4::ApplicationWindow;
 use i3ipc::event::inner::WorkspaceChange;
 use i3ipc::event::Event;
 use std::ffi::CString;
@@ -48,13 +48,31 @@ fn setup(app: &Application) {
     // use smaller lock scopes
     let tabs = Arc::new(RwLock::new(tabs::TabsList::new()));
 
-    let controller = EventControllerKey::new();
+    // switch(window.clone(), tabs.clone());
+
+    style::init();
+
+    {
+        let tabs = tabs.read().unwrap();
+        window.set_child(Some(&tabs.tabs_box));
+    }
+
+    window.present();
+    window.hide();
+
+    let (i3_event_sender, i3_event_receiver): (mpsc::Sender<Event>, mpsc::Receiver<Event>) =
+        mpsc::channel();
+
+    thread::spawn(|| i3wm::listen(i3_event_sender));
+
     let window_clone = window.clone();
     let tabs_clone = tabs.clone();
-    controller.connect_key_released(
-        move |_, keyval, _, _| match keyval.name().unwrap().as_str() {
-            "Alt_L" => {
-                log::debug!("Alt_L released [GTK]");
+    glib::timeout_add_local(
+        Duration::from_millis(50),
+        clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
+            if state::SHOULD_SWITCH.load(Ordering::SeqCst) {
+                log::debug!("Switching");
+
                 window_clone.hide();
                 state::IS_VISIBLE.store(false, Ordering::SeqCst);
 
@@ -72,8 +90,7 @@ fn setup(app: &Application) {
 
                 let mut curr_ws_name = state::CURRENT_WS_NAME.write().unwrap();
                 if let Some(name) = (*curr_ws_name).clone() {
-                    let monitor_name =
-                        CString::new(monitor_name.as_bytes()).expect("CString::new failed");
+                    let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
                     let img = screenshot::take(&monitor_name);
                     let mut tabs = tabs_clone.write().unwrap();
                     tabs.set_image(name, img);
@@ -84,26 +101,15 @@ fn setup(app: &Application) {
                     i3wm::focus_workspace(name.clone());
                     *curr_ws_name = Some(name);
                 }
+
+                state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
+                state::SELECTED_INDEX_CHANGED.store(true, Ordering::SeqCst);
+                state::SHOULD_SWITCH.store(false, Ordering::SeqCst);
             }
-            _ => {}
-        },
+
+            glib::ControlFlow::Continue
+        }),
     );
-    window.add_controller(controller);
-
-    style::init();
-
-    {
-        let tabs = tabs.read().unwrap();
-        window.set_child(Some(&tabs.tabs_box));
-    }
-
-    window.present();
-    window.hide();
-
-    let (i3_event_sender, i3_event_receiver): (mpsc::Sender<Event>, mpsc::Receiver<Event>) =
-        mpsc::channel();
-
-    thread::spawn(|| i3wm::listen(i3_event_sender));
 
     glib::timeout_add_local(
         Duration::from_millis(50),
