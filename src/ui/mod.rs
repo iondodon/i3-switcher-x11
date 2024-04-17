@@ -69,6 +69,7 @@ fn setup(app: &Application) {
         Duration::from_millis(50),
         clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
             if state::SHOULD_SWITCH.load(Ordering::SeqCst) {
+                state::SHOULD_SWITCH.store(false, Ordering::SeqCst);
                 if state::IS_VISIBLE.load(Ordering::SeqCst) {
                     state::IS_VISIBLE.store(false, Ordering::SeqCst);
 
@@ -102,7 +103,6 @@ fn setup(app: &Application) {
                     state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
                     state::SELECTED_INDEX_CHANGED.store(true, Ordering::SeqCst);
                 }
-                state::SHOULD_SWITCH.store(false, Ordering::SeqCst);
             }
 
             glib::ControlFlow::Continue
@@ -111,7 +111,7 @@ fn setup(app: &Application) {
 
     glib::timeout_add_local(
         Duration::from_millis(50),
-        clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
+        clone!(@weak tabs, @weak window => @default-return ControlFlow::Continue, move || {
 
             match i3_event_receiver.try_recv() {
                 Ok(event) => {
