@@ -48,8 +48,6 @@ fn setup(app: &Application) {
     // use smaller lock scopes
     let tabs = Arc::new(RwLock::new(tabs::TabsList::new()));
 
-    // switch(window.clone(), tabs.clone());
-
     style::init();
 
     {
@@ -71,39 +69,39 @@ fn setup(app: &Application) {
         Duration::from_millis(50),
         clone!(@weak tabs => @default-return ControlFlow::Continue, move || {
             if state::SHOULD_SWITCH.load(Ordering::SeqCst) {
-                log::debug!("Switching");
+                if state::IS_VISIBLE.load(Ordering::SeqCst) {
+                    state::IS_VISIBLE.store(false, Ordering::SeqCst);
 
-                window_clone.hide();
-                state::IS_VISIBLE.store(false, Ordering::SeqCst);
+                    log::debug!("Switching workspace");
 
-                {
-                    let mut tabs = tabs_clone.write().unwrap();
-                    tabs.reorder_prev_first();
+                    window_clone.hide();
+                    {
+                        let mut tabs = tabs_clone.write().unwrap();
+                        tabs.reorder_prev_first();
+                    }
+
+                    let surface = window_clone.surface().unwrap();
+                    let display = window_clone.display();
+                    let monitor = display.monitor_at_surface(&surface).unwrap();
+                    let monitor_name = monitor.model().unwrap();
+
+                    let mut curr_ws_name = state::CURRENT_WS_NAME.write().unwrap();
+                    if let Some(name) = (*curr_ws_name).clone() {
+                        let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
+                        let img = screenshot::take(&monitor_name);
+                        let mut tabs = tabs_clone.write().unwrap();
+                        tabs.set_image(name, img);
+                    }
+
+                    let name = state::FOCUSED_TAB_NAME.read().unwrap();
+                    if let Some(name) = (*name).clone() {
+                        i3wm::focus_workspace(name.clone());
+                        *curr_ws_name = Some(name);
+                    }
+
+                    state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
+                    state::SELECTED_INDEX_CHANGED.store(true, Ordering::SeqCst);
                 }
-
-                state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
-
-                let surface = window_clone.surface().unwrap();
-                let display = window_clone.display();
-                let monitor = display.monitor_at_surface(&surface).unwrap();
-                let monitor_name = monitor.model().unwrap();
-
-                let mut curr_ws_name = state::CURRENT_WS_NAME.write().unwrap();
-                if let Some(name) = (*curr_ws_name).clone() {
-                    let monitor_name = CString::new(monitor_name.as_bytes()).expect("CString::new failed");
-                    let img = screenshot::take(&monitor_name);
-                    let mut tabs = tabs_clone.write().unwrap();
-                    tabs.set_image(name, img);
-                }
-
-                let name = state::FOCUSED_TAB_NAME.read().unwrap();
-                if let Some(name) = (*name).clone() {
-                    i3wm::focus_workspace(name.clone());
-                    *curr_ws_name = Some(name);
-                }
-
-                state::SELECTED_INDEX.store(-1, Ordering::SeqCst);
-                state::SELECTED_INDEX_CHANGED.store(true, Ordering::SeqCst);
                 state::SHOULD_SWITCH.store(false, Ordering::SeqCst);
             }
 

@@ -67,10 +67,9 @@ pub fn listen_alt_tab() {
                 xlib::KeyRelease => {
                     let xkey = xlib::XKeyEvent::from(event);
                     if xkey.keycode == alt_key as u32 && ALT_PRESSED.load(Ordering::SeqCst) {
-                        log::debug!("Tab Released [X11]");
-                        ALT_PRESSED.store(false, Ordering::SeqCst);
-                        state::IS_VISIBLE.store(false, Ordering::SeqCst);
+                        log::debug!("Alt Released [X11]");
                         state::SHOULD_SWITCH.store(true, Ordering::SeqCst);
+                        ALT_PRESSED.store(false, Ordering::SeqCst);
                     }
                 }
                 _ => {}

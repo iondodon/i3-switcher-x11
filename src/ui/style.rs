@@ -61,16 +61,13 @@ fn get_css() -> String {
     let css_file_path = Path::new(&scss_file);
 
     if !css_file_path.exists() {
-        let settings_file = OpenOptions::new()
+        let css_file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .open(css_file_path);
 
-        settings_file
-            .unwrap()
-            .write(DEFAULT_CSS.as_bytes())
-            .unwrap();
+        css_file.unwrap().write(DEFAULT_CSS.as_bytes()).unwrap();
     }
 
     let css = fs::read_to_string(css_file_path).unwrap();
