@@ -122,6 +122,13 @@ fn setup(app: &Application) {
                                 let mut tabs = tabs.write().unwrap();
                                 tabs.add_new_tab(None, &info.current.unwrap().name.unwrap());
                                 tabs.re_render();
+
+                                window.present(); // needed to be able to move the position of the Window
+
+                                // re-center window, 0 and 0 for center
+                                let command = format!("[title=\"i3switcherX11\"] move window to position {} {}", 0, 0);
+                                let mut i3_conn = state::I3_CONNECTION.write().unwrap();
+                                i3_conn.run_command(&command).unwrap();
                             },
                             WorkspaceChange::Empty => {
                                 log::debug!("Removed workspace {:?}", info);
