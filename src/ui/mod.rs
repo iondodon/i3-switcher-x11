@@ -159,9 +159,14 @@ fn setup(app: &Application) {
                 }
                 if state::SELECTED_INDEX_CHANGED.load(Ordering::SeqCst) {
                     let tabs = tabs.read().unwrap();
-                    if state::SELECTED_INDEX.load(Ordering::SeqCst) as usize >= tabs.tabs_vec.len() {
+
+                    let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
+                    if selected_index >= tabs.tabs_vec.len() as i8 {
                         state::SELECTED_INDEX.store(0, Ordering::SeqCst);
+                    } else if selected_index < 0 {
+                        state::SELECTED_INDEX.store(tabs.tabs_vec.len() as i8 - 1, Ordering::SeqCst);
                     }
+
                     let selected_index = state::SELECTED_INDEX.load(Ordering::SeqCst);
                     for (index, tab) in tabs.tabs_vec.iter().enumerate() {
                         if tab.gtk_box.has_css_class("focused_tab") {
